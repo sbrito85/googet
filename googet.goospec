@@ -1,0 +1,40 @@
+{
+  "name": "googet",
+  "version": "2.6.0@1",
+  "arch": "x86_64",
+  "authors": "ajackura",
+  "owners": "ajackura",
+  "description": "GooGet Package Manager",
+  "files": {
+    "googet.exe": "<ProgramData>/GooGet/googet.exe"
+  },
+  "install": {
+    "path": "install.ps1"
+  },
+  "releaseNotes": [
+    "2.5.3 - COM errors no longer stop GooGet from running.",
+    "2.5.2 - Switch from Changelog to ReleaseNotes in state file and info.",
+    "2.5.1 - Subcommands 'help', 'commands' and 'flags' don't require a lock.",
+    "2.5.0 - Remove deprecated files on upgrade, any files that were referenced in the last package install that are not in the new version will get removed.",
+    "      - Store installed files and their hashes in the state file.",
+    "2.4.2 - Add additional logging to msi install/uninstalls.",
+    "2.4.0 - Add googet locking and ability to setup a googet.conf config file.",
+    "2.3.5 - Add info flag to installed and available commands.",
+    "2.3.4 - Attempt to redownload packages if unpack directory does not exist.",
+    "2.3.3 - Resolve environmental variables in Files.",
+    "2.3.1 - Bug fixes to googet downlad, available and installed filtering.",
+    "2.3.0 - Enumerate install deps before asking for confirmation.",
+    "2.2.0 - Move some flags around, add option to apply changes to DB only.",
+    "2.1.0 - Add ability to install files without a script."
+  ],
+  "sources": [{
+      "include": [
+        "googet.exe", 
+        "install.ps1"
+      ]
+  }],
+  "build": {
+    "windows": "build.cmd",
+    "linux": "./build.sh"
+  }
+}
