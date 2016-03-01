@@ -1,4 +1,6 @@
-# GooGet
+# GooGet 
+[![Build Status](https://travis-ci.org/google/googet.svg?branch=master)](https://travis-ci.org/google/googet)
+
 GooGet (Googet's Obviously Only a Goofy Experimental Title) is a modular
 package repository solution primarily designed for Windows. 
 
