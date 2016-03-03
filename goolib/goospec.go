@@ -80,7 +80,6 @@ type PkgSpec struct {
 	Tags            map[string][]byte `json:",omitempty"`
 	PkgDependencies map[string]string `json:",omitempty"`
 	Install         ExecFile
-	Verify          ExecFile
 	Uninstall       ExecFile
 	Files           map[string]string `json:",omitempty"`
 }
