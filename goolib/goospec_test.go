@@ -314,7 +314,6 @@ func TestMarshal(t *testing.T) {
     "Install": {
       "Path": "install.ps1"
     },
-    "Verify": {},
     "Uninstall": {}
   }
 }`)
