@@ -17,9 +17,7 @@ package remove
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/google/googet/client"
 	"github.com/google/googet/download"
@@ -72,35 +70,6 @@ func uninstallPkg(pi goolib.PackageInfo, state *client.GooGetState, dbOnly bool)
 				logger.Infof("Removing %q", dir)
 				if err := client.RemoveOrRename(dir); err != nil {
 					logger.Info(err)
-				}
-			}
-		} else {
-			// TODO(ajackura): Remove this 'else' once most packages have updated their
-			// state to include InstalledFiles.
-			for src, dst := range ps.PackageSpec.Files {
-				if !filepath.IsAbs(dst) {
-					if strings.HasPrefix(dst, "<") {
-						if i := strings.LastIndex(dst, ">"); i != -1 {
-							dst = os.Getenv(dst[1:i]) + dst[i+1:]
-						} else {
-							dst = "/" + dst
-						}
-					} else {
-						dst = "/" + dst
-					}
-				}
-				var toRemove []string
-				src = filepath.Join(ps.UnpackDir, src)
-				err = filepath.Walk(src, func(path string, fi os.FileInfo, err error) error {
-					if err == nil {
-						toRemove = append([]string{path}, toRemove...)
-					}
-					return nil
-				})
-				for _, path := range toRemove {
-					outPath := filepath.Join(dst, strings.TrimPrefix(path, src))
-					logger.Infof("Removing %q", outPath)
-					client.RemoveOrRename(outPath)
 				}
 			}
 		}
