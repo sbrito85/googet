@@ -1,1 +1,1 @@
-go build -ldflags '-X main.version=1.6.0@1'
+go build -ldflags '-X main.version=1.6.1@1'
