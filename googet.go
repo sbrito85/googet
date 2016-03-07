@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	yaml "github.com/fraenkel/candiedyaml"
+	yaml "github.com/tjarratt/candiedyaml"
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/googet/system"
