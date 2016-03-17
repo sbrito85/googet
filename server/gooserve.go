@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 var (
@@ -75,7 +75,7 @@ func packageInfo(pkgPath, packageDir string) error {
 		return fmt.Errorf("%s: version in spec does not match package version", pkgPath)
 	}
 
-	f, err := os.Open(pkgPath)
+	f, err := oswrap.Open(pkgPath)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func packageInfo(pkgPath, packageDir string) error {
 
 func runSync(packageDir string) error {
 	logger.Info("Beginning sync run")
-	if err := os.MkdirAll(packageDir, 0774); err != nil {
+	if err := oswrap.MkdirAll(packageDir, 0774); err != nil {
 		return err
 	}
 
@@ -116,7 +116,7 @@ func runSync(packageDir string) error {
 
 // extractSpec takes a goopkg file and returns the unmarshalled spec file.
 func extractSpec(pkgPath string) (*goolib.PkgSpec, error) {
-	f, err := os.Open(pkgPath)
+	f, err := oswrap.Open(pkgPath)
 	if err != nil {
 		return nil, err
 	}

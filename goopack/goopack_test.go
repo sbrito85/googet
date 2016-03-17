@@ -17,12 +17,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"io/ioutil"
-	"os"
 	"path"
 	"reflect"
 	"testing"
 
 	"github.com/google/googet/goolib"
+	"github.com/google/googet/oswrap"
 )
 
 func TestPathMatch(t *testing.T) {
@@ -84,29 +84,29 @@ func TestMapFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 	wf1 := path.Join(tempDir, "globme.file")
-	f, err := os.Create(wf1)
+	f, err := oswrap.Create(wf1)
 	if err != nil {
 		t.Fatalf("error creating test file: %v", err)
 	}
 	f.Close()
-	f, err = os.Create(path.Join(tempDir, "notme.file"))
+	f, err = oswrap.Create(path.Join(tempDir, "notme.file"))
 	if err != nil {
 		t.Fatalf("error creating test file: %v", err)
 	}
 	f.Close()
 	wd := path.Join(tempDir, "globdir")
-	if err := os.Mkdir(wd, 0755); err != nil {
+	if err := oswrap.Mkdir(wd, 0755); err != nil {
 		t.Fatalf("error creating test directory: %v", err)
 	}
 	wf2 := path.Join(wd, "globmetoo.file")
-	f, err = os.Create(wf2)
+	f, err = oswrap.Create(wf2)
 	if err != nil {
 		t.Fatalf("error creating test file: %v", err)
 	}
 	f.Close()
-	f, err = os.Create(path.Join(tempDir, "notmeeither.file"))
+	f, err = oswrap.Create(path.Join(tempDir, "notmeeither.file"))
 	if err != nil {
 		t.Fatalf("error creating test file: %v", err)
 	}
@@ -135,9 +135,9 @@ func TestWriteFiles(t *testing.T) {
 	if err != nil {
 		t.Errorf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 	wf := path.Join(tempDir, "test.pkg")
-	f, err := os.Create(wf)
+	f, err := oswrap.Create(wf)
 	if err != nil {
 		t.Errorf("error creating test package: %v", err)
 	}

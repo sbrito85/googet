@@ -15,7 +15,6 @@ package remove
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -23,6 +22,7 @@ import (
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 func init() {
@@ -34,18 +34,18 @@ func TestUninstallPkg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(src)
+	defer oswrap.RemoveAll(src)
 
 	dst, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(dst)
+	defer oswrap.RemoveAll(dst)
 
 	testFolder := filepath.Join(dst, "and")
 	testFolder2 := filepath.Join(testFolder, "another")
 	testFolder3 := filepath.Join(testFolder2, "level")
-	if err := os.MkdirAll(testFolder3, 0755); err != nil {
+	if err := oswrap.MkdirAll(testFolder3, 0755); err != nil {
 		t.Fatalf("Failed to create test folder: %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestUninstallPkg(t *testing.T) {
 	}
 
 	for _, n := range []string{testFile, dst} {
-		if _, err := os.Stat(n); err == nil {
+		if _, err := oswrap.Stat(n); err == nil {
 			t.Errorf("%s was not removed", n)
 		}
 	}

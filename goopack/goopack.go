@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/google/googet/goolib"
+	"github.com/google/googet/oswrap"
 )
 
 var outputDir = flag.String("output_dir", "", "where to put the built package")
@@ -48,7 +49,7 @@ func walkDir(dir string) ([]string, error) {
 
 		// follow symlinks
 		if (fi.Mode() & os.ModeSymlink) != 0 {
-			if fi, err = os.Stat(path); err != nil {
+			if fi, err = oswrap.Stat(path); err != nil {
 				return nil, err
 			}
 		}
@@ -218,7 +219,7 @@ func globFiles(s goolib.PkgSources) ([]string, error) {
 func writeFiles(tw *tar.Writer, fm fileMap) error {
 	for folder, fl := range fm {
 		for _, file := range fl {
-			fi, err := os.Stat(file)
+			fi, err := oswrap.Stat(file)
 			if err != nil {
 				return err
 			}
@@ -231,7 +232,7 @@ func writeFiles(tw *tar.Writer, fm fileMap) error {
 			if err := tw.WriteHeader(fih); err != nil {
 				return err
 			}
-			f, err := os.Open(file)
+			f, err := oswrap.Open(file)
 			if err != nil {
 				return err
 			}
@@ -247,7 +248,7 @@ func writeFiles(tw *tar.Writer, fm fileMap) error {
 
 func packageFiles(fm fileMap, gs goolib.GooSpec, dir string) (err error) {
 	pn := goolib.PackageInfo{gs.PackageSpec.Name, gs.PackageSpec.Arch, gs.PackageSpec.Version}.PkgName()
-	f, err := os.Create(filepath.Join(dir, pn))
+	f, err := oswrap.Create(filepath.Join(dir, pn))
 	if err != nil {
 		return err
 	}

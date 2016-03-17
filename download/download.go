@@ -31,6 +31,7 @@ import (
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 // Package downloads a package from the given url,
@@ -42,7 +43,7 @@ func Package(pkgURL, dst, chksum string) error {
 	}
 	defer resp.Body.Close()
 	logger.Infof("Downloading %q", pkgURL)
-	if err := os.RemoveAll(dst); err != nil {
+	if err := oswrap.RemoveAll(dst); err != nil {
 		return err
 	}
 	if err := download(resp.Body, dst, chksum); err != nil {
@@ -73,7 +74,7 @@ func Latest(name, dir string, rm client.RepoMap, archs []string) (string, error)
 }
 
 func download(r io.Reader, p, chksum string) (err error) {
-	f, err := os.Create(p)
+	f, err := oswrap.Create(p)
 	if err != nil {
 		return err
 	}
@@ -103,12 +104,12 @@ func download(r io.Reader, p, chksum string) (err error) {
 // package name, it returns the path to the extraced directory.
 func ExtractPkg(src string) (dst string, err error) {
 	dst = strings.TrimSuffix(src, filepath.Ext(src))
-	if err := os.Mkdir(dst, 0755); err != nil && !os.IsExist(err) {
+	if err := oswrap.Mkdir(dst, 0755); err != nil && !os.IsExist(err) {
 		return "", err
 	}
 	logger.Infof("Extracting %q to %q", src, dst)
 
-	f, err := os.Open(src)
+	f, err := oswrap.Open(src)
 	if err != nil {
 		return "", fmt.Errorf("error reading zip package: %v", err)
 	}
@@ -133,15 +134,15 @@ func ExtractPkg(src string) (dst string, err error) {
 
 		path := filepath.Join(dst, header.Name)
 		if header.FileInfo().IsDir() {
-			if err := os.MkdirAll(path, 0755); err != nil {
+			if err := oswrap.MkdirAll(path, 0755); err != nil {
 				return "", err
 			}
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		if err := oswrap.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			return "", err
 		}
-		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
+		f, err := oswrap.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
 		if err != nil {
 			return "", err
 		}

@@ -27,6 +27,7 @@ import (
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -76,7 +77,7 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 	}
 
 	logger.Infof("Running install: %q", in.Path)
-	out, err := os.Create(filepath.Join(dir, in.Path+".log"))
+	out, err := oswrap.Create(filepath.Join(dir, in.Path+".log"))
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,7 @@ func Uninstall(st client.PackageState) error {
 
 	logger.Infof("Running uninstall: %q", un.Path)
 	// logging is only useful for failed uninstall
-	out, err := os.Create(filepath.Join(st.UnpackDir, un.Path+".log"))
+	out, err := oswrap.Create(filepath.Join(st.UnpackDir, un.Path+".log"))
 	if err != nil {
 		return err
 	}

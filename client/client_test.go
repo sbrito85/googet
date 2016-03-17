@@ -21,7 +21,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 const (
@@ -178,7 +178,7 @@ func TestUnmarshalRepoPackagesJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	want := []goolib.RepoSpec{
 		{Source: "foo"},
@@ -212,7 +212,7 @@ func TestUnmarshalRepoPackagesGzip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	want := []goolib.RepoSpec{
 		{Source: "foo"},
@@ -254,7 +254,7 @@ func TestUnmarshalRepoPackagesCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	want := []goolib.RepoSpec{
 		{Source: "foo"},
@@ -264,7 +264,7 @@ func TestUnmarshalRepoPackagesCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error marshalling json: %v", err)
 	}
-	f, err := os.Create(filepath.Join(tempDir, "test-repo.rs"))
+	f, err := oswrap.Create(filepath.Join(tempDir, "test-repo.rs"))
 	if err != nil {
 		t.Fatalf("Error creating cache file: %v", err)
 	}

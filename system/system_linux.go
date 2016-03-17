@@ -18,12 +18,12 @@ package system
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 // Install performs a system specfic install given a package extraction directory and an PkgSpec struct.
@@ -35,7 +35,7 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 	}
 
 	logger.Infof("Running install: %q", in.Path)
-	out, err := os.Create(filepath.Join(dir, "googet_install.log"))
+	out, err := oswrap.Create(filepath.Join(dir, "googet_install.log"))
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func Uninstall(st client.PackageState) error {
 
 	logger.Infof("Running uninstall: %q", un.Path)
 	// logging is only useful for failed uninstalls
-	out, err := os.Create(filepath.Join(st.UnpackDir, "googet_remove.log"))
+	out, err := oswrap.Create(filepath.Join(st.UnpackDir, "googet_remove.log"))
 	if err != nil {
 		return err
 	}
