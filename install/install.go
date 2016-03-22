@@ -443,7 +443,7 @@ func installPkg(dir string, ps *goolib.PkgSpec, dbOnly bool) (map[string]string,
 	for src, dst := range ps.Files {
 		dst = resolveDst(dst)
 		src = filepath.Join(dir, src)
-		if err := filepath.Walk(src, makeInstallFunction(src, dst, insFiles, dbOnly)); err != nil {
+		if err := oswrap.Walk(src, makeInstallFunction(src, dst, insFiles, dbOnly)); err != nil {
 			return nil, err
 		}
 	}

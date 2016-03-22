@@ -105,3 +105,14 @@ func Stat(name string) (os.FileInfo, error) {
 	}
 	return os.Stat(name)
 }
+
+func Walk(root string, walkFn filepath.WalkFunc) error {
+	newroot, err := NormPath(root)
+	if err != nil {
+		return err
+	}
+	return filepath.Walk(newroot, func(path string, info os.FileInfo, err error) error {
+		oldpath := root + strings.TrimPrefix(path, newroot)
+		return walkFn(oldpath, info, err)
+	})
+}

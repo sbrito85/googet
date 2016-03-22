@@ -3,6 +3,7 @@
 package oswrap
 
 import (
+	"path/filepath"
 	"os"
 )
 
@@ -45,4 +46,8 @@ func Lstat(name string) (os.FileInfo, error) {
 
 func Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
+}
+
+func Walk(root string, walkFn filepath.WalkFunc) error {
+	return filepath.Walk(root, walkFn)
 }
