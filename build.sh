@@ -1,2 +1,2 @@
 #! /bin/sh
-GOOS=windows go build -ldflags '-X main.version=1.6.1@1'
+GOOS=windows go build -ldflags '-X main.version=2.7.0@1'
