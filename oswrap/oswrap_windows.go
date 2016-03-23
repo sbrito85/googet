@@ -8,7 +8,9 @@ import (
 	"strings"
 )
 
-func NormPath(path string) (string, error) {
+// normPath transforms a windows path into an extended-length path as described in
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
+func normPath(path string) (string, error) {
 	if strings.HasPrefix(path, "\\\\?\\") {
 		return path, nil
 	}
@@ -21,68 +23,76 @@ func NormPath(path string) (string, error) {
 	return "\\\\?\\" + path, nil
 }
 
+// Open calls os.Open with name normalized
 func Open(name string) (*os.File, error) {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil, err
 	}
 	return os.Open(name)
 }
 
+// Open calls os.Open with name normalized
 func Create(name string) (*os.File, error) {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil, err
 	}
 	return os.Create(name)
 }
 
+// OpenFile calls os.OpenFile with name normalized
 func OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil, err
 	}
 	return os.OpenFile(name, flag, perm)
 }
 
+// Remove calls os.Remove with name normalized
 func Remove(name string) error {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil
 	}
 	return os.Remove(name)
 }
 
+// RemoveAll calls os.RemoveAll with name normalized
 func RemoveAll(name string) error {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil
 	}
 	return os.RemoveAll(name)
 }
 
+// Mkdir calls os.Mkdir with name normalized
 func Mkdir(name string, mode os.FileMode) error {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return err
 	}
 	return os.Mkdir(name, mode)
 }
 
+// MkdirAll calls os.MkdirAll with name normalized
 func MkdirAll(name string, mode os.FileMode) error {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return err
 	}
 	return os.MkdirAll(name, mode)
 }
 
+// Rename calls os.Rename with name normalized
 func Rename(oldpath, newpath string) error {
-	oldpath, err := NormPath(oldpath)
+	oldpath, err := normPath(oldpath)
 	if err != nil {
 		return err
 	}
-	newpath, err = NormPath(newpath)
+	newpath, err = normPath(newpath)
 	if err != nil {
 		return err
 	}
@@ -90,24 +100,28 @@ func Rename(oldpath, newpath string) error {
 }
 
 
+// Lstat calls os.Lstat with name normalized
 func Lstat(name string) (os.FileInfo, error) {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil, err
 	}
 	return os.Lstat(name)
 }
 
+// Stat calls os.Stat with name normalized
 func Stat(name string) (os.FileInfo, error) {
-	name, err := NormPath(name)
+	name, err := normPath(name)
 	if err != nil {
 		return nil, err
 	}
 	return os.Stat(name)
 }
 
+// Walk calls filepath.Walk with name normalized, and un-normalizes name before
+// calling walkFn
 func Walk(root string, walkFn filepath.WalkFunc) error {
-	newroot, err := NormPath(root)
+	newroot, err := normPath(root)
 	if err != nil {
 		return err
 	}
