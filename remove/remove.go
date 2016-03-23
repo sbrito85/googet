@@ -24,6 +24,7 @@ import (
 	"github.com/google/googet/goolib"
 	"github.com/google/googet/system"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 func uninstallPkg(pi goolib.PackageInfo, state *client.GooGetState, dbOnly bool) error {
@@ -33,7 +34,7 @@ func uninstallPkg(pi goolib.PackageInfo, state *client.GooGetState, dbOnly bool)
 		return fmt.Errorf("package not found in state file: %v", err)
 	}
 	if !dbOnly {
-		_, err := os.Stat(ps.UnpackDir)
+		_, err := oswrap.Stat(ps.UnpackDir)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -46,7 +47,7 @@ func uninstallPkg(pi goolib.PackageInfo, state *client.GooGetState, dbOnly bool)
 			if _, err := download.ExtractPkg(dst); err != nil {
 				return err
 			}
-			if err := os.Remove(dst); err != nil {
+			if err := oswrap.Remove(dst); err != nil {
 				logger.Errorf("error cleaning up package file: %v", err)
 			}
 		}
@@ -75,7 +76,7 @@ func uninstallPkg(pi goolib.PackageInfo, state *client.GooGetState, dbOnly bool)
 		}
 	}
 
-	if err := os.RemoveAll(ps.UnpackDir); err != nil {
+	if err := oswrap.RemoveAll(ps.UnpackDir); err != nil {
 		logger.Errorf("error removing package data from cache directory: %v", err)
 	}
 	return state.Remove(pi)

@@ -29,6 +29,7 @@ import (
 	"github.com/google/googet/goolib"
 	"github.com/google/googet/system"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 // minInstalled reports whether the package is installed at the given version or greater.
@@ -132,7 +133,7 @@ func FromRepo(pi goolib.PackageInfo, repo, cache string, rm client.RepoMap, arch
 		if !dbOnly {
 			cleanOldFiles(dir, st, insFiles)
 		}
-		if err := os.RemoveAll(st.UnpackDir); err != nil {
+		if err := oswrap.RemoveAll(st.UnpackDir); err != nil {
 			logger.Error(err)
 		}
 		if err := state.Remove(pi); err != nil {
@@ -152,7 +153,7 @@ func FromRepo(pi goolib.PackageInfo, repo, cache string, rm client.RepoMap, arch
 
 // FromDisk installs a local .goo file.
 func FromDisk(arg, cache string, state *client.GooGetState, dbOnly, ri bool) error {
-	if _, err := os.Stat(arg); err != nil {
+	if _, err := oswrap.Stat(arg); err != nil {
 		return err
 	}
 
@@ -218,7 +219,7 @@ func FromDisk(arg, cache string, state *client.GooGetState, dbOnly, ri bool) err
 		if !dbOnly {
 			cleanOldFiles(dir, st, insFiles)
 		}
-		if err := os.RemoveAll(st.UnpackDir); err != nil {
+		if err := oswrap.RemoveAll(st.UnpackDir); err != nil {
 			logger.Error(err)
 		}
 		if err := state.Remove(pi); err != nil {
@@ -238,7 +239,7 @@ func Reinstall(ps client.PackageState, state client.GooGetState, rd bool) error 
 	pi := goolib.PackageInfo{ps.PackageSpec.Name, ps.PackageSpec.Arch, ps.PackageSpec.Version}
 	logger.Infof("Starting reinstall of %s.%s, version %s", pi.Name, pi.Arch, pi.Ver)
 	fmt.Printf("Reinstalling %s.%s %s and dependencies...\n", pi.Name, pi.Arch, pi.Ver)
-	_, err := os.Stat(ps.UnpackDir)
+	_, err := oswrap.Stat(ps.UnpackDir)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -270,13 +271,13 @@ func Reinstall(ps client.PackageState, state client.GooGetState, rd bool) error 
 }
 
 func copyPkg(src, dst string) (retErr error) {
-	r, err := os.Open(src)
+	r, err := oswrap.Open(src)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	f, err := os.Create(dst)
+	f, err := oswrap.Create(dst)
 	if err != nil {
 		return err
 	}
@@ -297,7 +298,7 @@ func extractPkg(pkg string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.Remove(pkg); err != nil {
+	if err := oswrap.Remove(pkg); err != nil {
 		logger.Errorf("error cleaning up package file: %v", err)
 	}
 	return dir, nil
@@ -328,7 +329,7 @@ func NeedsInstallation(pi goolib.PackageInfo, state client.GooGetState) (bool, e
 }
 
 func extractSpec(pkgPath string) (*goolib.PkgSpec, error) {
-	f, err := os.Open(pkgPath)
+	f, err := oswrap.Open(pkgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +346,7 @@ func makeInstallFunction(src, dst string, insFiles map[string]string, dbOnly boo
 		outPath := filepath.Join(dst, strings.TrimPrefix(path, src))
 		if dbOnly {
 			if !fi.IsDir() {
-				f, err := os.Open(path)
+				f, err := oswrap.Open(path)
 				if err != nil {
 					return err
 				}
@@ -359,21 +360,21 @@ func makeInstallFunction(src, dst string, insFiles map[string]string, dbOnly boo
 			logger.Infof("Creating folder %q", outPath)
 			// We designate directories by an empty hash.
 			insFiles[outPath] = ""
-			return os.MkdirAll(outPath, fi.Mode())
+			return oswrap.MkdirAll(outPath, fi.Mode())
 		}
 		if err = client.RemoveOrRename(outPath); err != nil {
 			return err
 		}
 		logger.Infof("Copying file %q", outPath)
-		oFile, err := os.Create(outPath)
+		oFile, err := oswrap.Create(outPath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(outPath), fi.Mode()); err != nil {
+			if err := oswrap.MkdirAll(filepath.Dir(outPath), fi.Mode()); err != nil {
 				return err
 			}
-			if oFile, err = os.Create(outPath); err != nil {
+			if oFile, err = oswrap.Create(outPath); err != nil {
 				return err
 			}
 		}
@@ -382,7 +383,7 @@ func makeInstallFunction(src, dst string, insFiles map[string]string, dbOnly boo
 				outerr = err
 			}
 		}()
-		iFile, err := os.Open(path)
+		iFile, err := oswrap.Open(path)
 		if err != nil {
 			return err
 		}
@@ -442,7 +443,7 @@ func installPkg(dir string, ps *goolib.PkgSpec, dbOnly bool) (map[string]string,
 	for src, dst := range ps.Files {
 		dst = resolveDst(dst)
 		src = filepath.Join(dir, src)
-		if err := filepath.Walk(src, makeInstallFunction(src, dst, insFiles, dbOnly)); err != nil {
+		if err := oswrap.Walk(src, makeInstallFunction(src, dst, insFiles, dbOnly)); err != nil {
 			return nil, err
 		}
 	}

@@ -15,7 +15,6 @@ package main
 
 import (
 	"io/ioutil"
-	"os"
 	"path"
 	"reflect"
 	"testing"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
+	"github.com/google/googet/oswrap"
 )
 
 func TestRepoList(t *testing.T) {
@@ -32,9 +32,9 @@ func TestRepoList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
-	f, err := os.Create(path.Join(tempDir, "test.repo"))
+	f, err := oswrap.Create(path.Join(tempDir, "test.repo"))
 	if err != nil {
 		t.Fatalf("error creating repo file: %v", err)
 	}
@@ -86,10 +86,10 @@ func TestReadConf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	confPath := path.Join(tempDir, "test.conf")
-	f, err := os.Create(confPath)
+	f, err := oswrap.Create(confPath)
 	if err != nil {
 		t.Fatalf("error creating conf file: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestRotateLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	table := []struct {
 		name    string
@@ -133,7 +133,7 @@ func TestRotateLog(t *testing.T) {
 
 	for _, tt := range table {
 		logPath := path.Join(tempDir, tt.name)
-		f, err := os.Create(logPath)
+		f, err := oswrap.Create(logPath)
 		if err != nil {
 			t.Fatalf("error creating log file: %v", err)
 		}
@@ -152,14 +152,14 @@ func TestRotateLog(t *testing.T) {
 
 		switch tt.rotated {
 		case true:
-			if _, err := os.Stat(logPath); err == nil {
+			if _, err := oswrap.Stat(logPath); err == nil {
 				t.Error("rotateLog did not rotate log as expected, old log file still exists")
 			}
-			if _, err := os.Stat(logPath + ".old"); err != nil {
+			if _, err := oswrap.Stat(logPath + ".old"); err != nil {
 				t.Error("rotateLog did not rotate log as expected, .old file does not exist")
 			}
 		case false:
-			if _, err := os.Stat(logPath); err != nil {
+			if _, err := oswrap.Stat(logPath); err != nil {
 				t.Error("rotateLog rotated a log we didn't expect")
 			}
 		}
@@ -175,7 +175,7 @@ func TestWriteReadState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	sf := path.Join(tempDir, "test.state")
 

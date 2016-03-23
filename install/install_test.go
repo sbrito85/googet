@@ -23,6 +23,7 @@ import (
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 func init() {
@@ -119,18 +120,26 @@ func TestInstallPkg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(src)
+	defer oswrap.RemoveAll(src)
 
 	dst, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(dst)
+	dst += (
+		"/this/is/an/extremely/long/filename/you/wouldnt/expect/to/see/it/" +
+		"in/the/wild/but/you/would/actually/be/surprised/at/some/of/the/" +
+		"stuff/that/pops/up/and/seriously/two/hundred/and/fify/five/chars" +
+		"is/quite/a/large/number/but/somehow/there/were/real/goo/packages" +
+		"which/exceeded/this/limit/hence/this/absurdly/long/string/in/" +
+		"this/unit/test")
+
+	defer oswrap.RemoveAll(dst)
 
 	files := []string{"test1", "test2", "test3"}
 	want := map[string]string{dst: ""}
 	for _, n := range files {
-		f, err := os.Create(filepath.Join(src, n))
+		f, err := oswrap.Create(filepath.Join(src, n))
 		if err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
@@ -153,7 +162,7 @@ func TestInstallPkg(t *testing.T) {
 
 	for _, n := range files {
 		want := filepath.Join(dst, n)
-		if _, err := os.Stat(want); err != nil {
+		if _, err := oswrap.Stat(want); err != nil {
 			t.Errorf("Expected test file %s does not exist", want)
 		}
 	}
@@ -164,13 +173,13 @@ func TestCleanOldFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(src)
+	defer oswrap.RemoveAll(src)
 
 	dst, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(dst)
+	defer oswrap.RemoveAll(dst)
 
 	for _, n := range []string{filepath.Join(src, "test1"), filepath.Join(src, "test2")} {
 		if err := ioutil.WriteFile(n, []byte{}, 0666); err != nil {
@@ -201,12 +210,12 @@ func TestCleanOldFiles(t *testing.T) {
 	cleanOldFiles(dst, st, map[string]string{want: "", dst: ""})
 
 	for _, n := range []string{want, dontCare} {
-		if _, err := os.Stat(n); err != nil {
+		if _, err := oswrap.Stat(n); err != nil {
 			t.Errorf("Expected test file %s does not exist", want)
 		}
 	}
 
-	if _, err := os.Stat(notWant); err == nil {
+	if _, err := oswrap.Stat(notWant); err == nil {
 		t.Errorf("Deprecated file %s not removed", notWant)
 	}
 }

@@ -18,13 +18,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/googet/goolib"
 	"github.com/google/logger"
+	"github.com/google/googet/oswrap"
 )
 
 func init() {
@@ -37,7 +37,7 @@ func TestDownload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 
 	chksum := goolib.Checksum(r)
 	if _, err := r.Seek(0, 0); err != nil {
@@ -57,9 +57,9 @@ func TestExtractPkg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer oswrap.RemoveAll(tempDir)
 	tempFile := filepath.Join(tempDir, "test.pkg")
-	f, err := os.Create(tempFile)
+	f, err := oswrap.Create(tempFile)
 	if err != nil {
 		t.Fatalf("error creating temp file: %v", err)
 	}

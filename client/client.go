@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/googet/goolib"
+	"github.com/google/googet/oswrap"
 	"github.com/google/logger"
 )
 
@@ -121,7 +122,7 @@ func decode(res *http.Response, cf string) ([]goolib.RepoSpec, error) {
 		}
 	}
 
-	f, err := os.Create(cf)
+	f, err := oswrap.Create(cf)
 	if err != nil {
 		return nil, err
 	}
@@ -141,10 +142,10 @@ func decode(res *http.Response, cf string) ([]goolib.RepoSpec, error) {
 // Sucessfully unmarshalled contents will be written to a cache.
 func unmarshalRepoPackages(p, cacheDir string, cacheLife time.Duration) ([]goolib.RepoSpec, error) {
 	cf := filepath.Join(cacheDir, filepath.Base(p)+".rs")
-	fi, err := os.Stat(cf)
+	fi, err := oswrap.Stat(cf)
 	if err == nil && time.Since(fi.ModTime()) < cacheLife {
 		logger.Infof("Using cached repo content for %s.", p)
-		f, err := os.Open(cf)
+		f, err := oswrap.Open(cf)
 		if err != nil {
 			return nil, err
 		}
@@ -271,11 +272,11 @@ func WhatRepo(pi goolib.PackageInfo, rm RepoMap) (string, error) {
 // and it's a file, attempt to rename it into a temp file on windows so
 // that it can be effectively overridden
 func RemoveOrRename(filename string) error {
-	rmErr := os.Remove(filename)
+	rmErr := oswrap.Remove(filename)
 	if rmErr == nil || os.IsNotExist(rmErr) {
 		return nil
 	}
-	fi, err := os.Stat(filename)
+	fi, err := oswrap.Stat(filename)
 	if err != nil {
 		return err
 	}
@@ -288,10 +289,10 @@ func RemoveOrRename(filename string) error {
 	}
 	newname := tmpfile.Name()
 	tmpfile.Close()
-	if err = os.Remove(newname); err != nil {
+	if err = oswrap.Remove(newname); err != nil {
 		return err
 	}
-	if err = os.Rename(filename, newname); err != nil {
+	if err = oswrap.Rename(filename, newname); err != nil {
 		return err
 	}
 	return nil
