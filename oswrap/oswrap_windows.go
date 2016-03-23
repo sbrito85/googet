@@ -1,5 +1,8 @@
 //+build windows
 
+// Package oswrap exists to translate pathnames into extended-length path names
+// behind the scenes, so that googet can install packages with deep directory
+// structures
 package oswrap
 
 import (
@@ -32,7 +35,7 @@ func Open(name string) (*os.File, error) {
 	return os.Open(name)
 }
 
-// Open calls os.Open with name normalized
+// Create calls os.Create with name normalized
 func Create(name string) (*os.File, error) {
 	name, err := normPath(name)
 	if err != nil {

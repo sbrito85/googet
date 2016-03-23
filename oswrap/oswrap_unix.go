@@ -1,7 +1,7 @@
 //+build linux darwin
 
-// The unix version of oswrap only exists for api-compatibility with the windows
-// version. All functions are simply thin wrappers to the actuall os functions.
+// Package oswrap on unix only exists for api-compatibility with the windows
+// version. All functions are simply thin wrappers to the actual os functions.
 package oswrap
 
 import (
