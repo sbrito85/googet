@@ -75,13 +75,19 @@ type repoFile struct {
 	URL  string
 }
 
-func unmarshalRepoFile(p string) (*repoFile, error) {
+func unmarshalRepoFile(p string) ([]repoFile, error) {
 	b, err := ioutil.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}
+	// Both repoFile and []repoFile are valid for backwards compatibilty.
 	var rf repoFile
-	return &rf, yaml.Unmarshal(b, &rf)
+	if err := yaml.Unmarshal(b, &rf); err == nil && rf.URL != "" {
+		return []repoFile{rf}, nil
+	}
+
+	var rfs []repoFile
+	return rfs, yaml.Unmarshal(b, &rfs)
 }
 
 type conf struct {
