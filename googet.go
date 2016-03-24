@@ -26,13 +26,13 @@ import (
 	"strings"
 	"time"
 
-	yaml "github.com/tjarratt/candiedyaml"
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/googet/system"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
 	"github.com/olekukonko/tablewriter"
+	yaml "github.com/tjarratt/candiedyaml"
 	"golang.org/x/net/context"
 )
 
@@ -111,12 +111,14 @@ func repoList(dir string) ([]string, error) {
 	}
 	var rl []string
 	for _, f := range fl {
-		rf, err := unmarshalRepoFile(f)
+		rfs, err := unmarshalRepoFile(f)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		rl = append(rl, rf.URL)
+		for _, rf := range rfs {
+			rl = append(rl, rf.URL)
+		}
 	}
 	return rl, nil
 }
