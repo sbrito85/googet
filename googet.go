@@ -26,13 +26,13 @@ import (
 	"strings"
 	"time"
 
-	yaml "github.com/tjarratt/candiedyaml"
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/googet/system"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
 	"github.com/olekukonko/tablewriter"
+	yaml "github.com/tjarratt/candiedyaml"
 	"golang.org/x/net/context"
 )
 
@@ -75,13 +75,19 @@ type repoFile struct {
 	URL  string
 }
 
-func unmarshalRepoFile(p string) (*repoFile, error) {
+func unmarshalRepoFile(p string) ([]repoFile, error) {
 	b, err := ioutil.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}
+	// Both repoFile and []repoFile are valid for backwards compatibilty.
 	var rf repoFile
-	return &rf, yaml.Unmarshal(b, &rf)
+	if err := yaml.Unmarshal(b, &rf); err == nil && rf.URL != "" {
+		return []repoFile{rf}, nil
+	}
+
+	var rfs []repoFile
+	return rfs, yaml.Unmarshal(b, &rfs)
 }
 
 type conf struct {
@@ -105,12 +111,14 @@ func repoList(dir string) ([]string, error) {
 	}
 	var rl []string
 	for _, f := range fl {
-		rf, err := unmarshalRepoFile(f)
+		rfs, err := unmarshalRepoFile(f)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		rl = append(rl, rf.URL)
+		for _, rf := range rfs {
+			rl = append(rl, rf.URL)
+		}
 	}
 	return rl, nil
 }

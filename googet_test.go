@@ -34,24 +34,28 @@ func TestRepoList(t *testing.T) {
 	}
 	defer oswrap.RemoveAll(tempDir)
 
-	f, err := oswrap.Create(path.Join(tempDir, "test.repo"))
-	if err != nil {
-		t.Fatalf("error creating repo file: %v", err)
-	}
-	if _, err := f.Write([]byte("url: " + testRepo)); err != nil {
-		t.Fatalf("error writing repo: %v", err)
-	}
-	if err := f.Close(); err != nil {
-		t.Fatalf("error closing repo file: %v", err)
+	testFile := path.Join(tempDir, "test.repo")
+
+	repoTests := []struct {
+		content []byte
+		result  []string
+	}{
+		{[]byte("url: " + testRepo), []string{testRepo}},
+		{[]byte("- url: " + testRepo), []string{testRepo}},
+		{[]byte("- url: " + testRepo + "\n\n- url: " + testRepo), []string{testRepo, testRepo}},
 	}
 
-	got, err := repoList(tempDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(got, []string{testRepo}) {
-		t.Errorf("returned repo does not match expected repo: got %v, want %v", got, testRepo)
+	for _, tt := range repoTests {
+		if err := ioutil.WriteFile(testFile, tt.content, 0660); err != nil {
+			t.Fatalf("error writing repo: %v", err)
+		}
+		got, err := repoList(tempDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, tt.result) {
+			t.Errorf("returned repo does not match expected repo: got %v, want %v", got, testRepo)
+		}
 	}
 }
 
