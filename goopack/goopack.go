@@ -290,7 +290,7 @@ func mapFiles(sources []goolib.PkgSources) (fileMap, error) {
 		for _, f := range fl {
 			dir := strings.TrimPrefix(filepath.Dir(f), s.Root)
 			// Ensure leading '/' is trimmed for directories.
-			dir = strings.TrimPrefix(dir, "/")
+			dir = strings.TrimPrefix(dir, string(filepath.Separator))
 			tgt := filepath.Join(s.Target, dir)
 			fm[tgt] = append(fm[tgt], f)
 		}
