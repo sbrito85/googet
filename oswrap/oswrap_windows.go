@@ -1,13 +1,23 @@
 //+build windows
 
-// Package oswrap exists to translate pathnames into extended-length path names
-// behind the scenes, so that googet can install packages with deep directory
-// structures
+/*
+Copyright 2016 Google Inc. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package oswrap
 
 import (
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -86,6 +96,13 @@ func MkdirAll(name string, mode os.FileMode) error {
 	if err != nil {
 		return err
 	}
+
+	// os.MkdirAll does not work with extended-length paths if
+	// nothing in the path exists.
+	if err := mkRootDir(name, mode); err != nil {
+		return err
+	}
+
 	return os.MkdirAll(name, mode)
 }
 
@@ -101,7 +118,6 @@ func Rename(oldpath, newpath string) error {
 	}
 	return os.Rename(oldpath, newpath)
 }
-
 
 // Lstat calls os.Lstat with name normalized
 func Lstat(name string) (os.FileInfo, error) {
