@@ -18,14 +18,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/googet/goolib"
+	"github.com/google/googet/oswrap"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
 	"golang.org/x/net/context"
 )
 
-type cleanCmd struct{}
+type cleanCmd struct {
+	all      bool
+	packages string
+}
 
 func (*cleanCmd) Name() string     { return "clean" }
 func (*cleanCmd) Synopsis() string { return "clean the cache directory" }
@@ -33,29 +38,64 @@ func (*cleanCmd) Usage() string {
 	return fmt.Sprintf("%s clean\n", filepath.Base(os.Args[0]))
 }
 
-func (cmd *cleanCmd) SetFlags(f *flag.FlagSet) {}
+func (cmd *cleanCmd) SetFlags(f *flag.FlagSet) {
+	f.BoolVar(&cmd.all, "all", false, "clear out the entire cache directory")
+	f.StringVar(&cmd.packages, "packages", "", "comma separated list of packages to clear out of the cache")
+}
 
 func (cmd *cleanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	fmt.Println("Removing all files and directories in cachedir that dont correspond to a currently installed package.")
+	if cmd.all {
+		fmt.Println("Removing all files and directories in cachedir.")
+		clean(nil)
+	} else if cmd.packages != "" {
+		pl := strings.Split(cmd.packages, ",")
+		fmt.Printf("Removing package cache for %s\n", pl)
+		cleanPackages(pl)
+	} else {
+		fmt.Println("Removing all files and directories in cachedir that don't correspond to a currently installed package.")
+		cleanOld()
+	}
+	return subcommands.ExitSuccess
+}
+
+func cleanPackages(pl []string) {
 	state, err := readState(filepath.Join(rootDir, stateFile))
 	if err != nil {
 		logger.Fatal(err)
 	}
-	var il []string
+
 	for _, pkg := range *state {
-		il = append(il, pkg.UnpackDir)
+		if goolib.ContainsString(pkg.PackageSpec.Name, pl) {
+			if err := oswrap.RemoveAll(pkg.UnpackDir); err != nil {
+				logger.Error(err)
+			}
+		}
 	}
+}
+
+func clean(il []string) {
 	files, err := filepath.Glob(filepath.Join(rootDir, cacheDir, "*"))
 	if err != nil {
 		logger.Fatal(err)
 	}
 	for _, file := range files {
 		if !goolib.ContainsString(file, il) {
-			if err := os.RemoveAll(file); err != nil {
+			if err := oswrap.RemoveAll(file); err != nil {
 				logger.Error(err)
 			}
 		}
 	}
+}
 
-	return subcommands.ExitSuccess
+func cleanOld() {
+	state, err := readState(filepath.Join(rootDir, stateFile))
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	var il []string
+	for _, pkg := range *state {
+		il = append(il, pkg.UnpackDir)
+	}
+	clean(il)
 }
