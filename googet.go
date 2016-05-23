@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 // The googet binary is the client for the GoGet packaging system, it performs the listing,
-// getting, installing and removing functons on client machines.
+// getting, installing and removing functions on client machines.
 package main
 
 import (
@@ -71,14 +71,26 @@ func installedPackages(state client.GooGetState) packageMap {
 }
 
 type repoFile struct {
-	Name string
-	URL  string
+	fileName    string
+	repoEntries []repoEntry
 }
 
-func unmarshalRepoFile(p string) ([]repoFile, error) {
+type repoEntry struct {
+	Name, URL string
+}
+
+func writeRepoFile(rf repoFile) error {
+	d, err := yaml.Marshal(rf.repoEntries)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(rf.fileName, d, 0664)
+}
+
+func unmarshalRepoFile(p string) (repoFile, error) {
 	b, err := ioutil.ReadFile(p)
 	if err != nil {
-		return nil, err
+		return repoFile{}, err
 	}
 
 	// Don't try to unmarshal files with no YAML content
@@ -92,17 +104,20 @@ func unmarshalRepoFile(p string) ([]repoFile, error) {
 		}
 	}
 	if !yml {
-		return nil, nil
+		return repoFile{}, nil
 	}
 
 	// Both repoFile and []repoFile are valid for backwards compatibilty.
-	var rf repoFile
-	if err := yaml.Unmarshal(b, &rf); err == nil && rf.URL != "" {
-		return []repoFile{rf}, nil
+	var re repoEntry
+	if err := yaml.Unmarshal(b, &re); err == nil && re.URL != "" {
+		return repoFile{fileName: p, repoEntries: []repoEntry{re}}, nil
 	}
 
-	var rfs []repoFile
-	return rfs, yaml.Unmarshal(b, &rfs)
+	var res []repoEntry
+	if err := yaml.Unmarshal(b, &res); err != nil {
+		return repoFile{}, err
+	}
+	return repoFile{fileName: p, repoEntries: res}, nil
 }
 
 type conf struct {
@@ -120,22 +135,36 @@ func unmarshalConfFile(p string) (*conf, error) {
 }
 
 func repoList(dir string) ([]string, error) {
-	fl, err := filepath.Glob(filepath.Join(dir, "*.repo"))
+	rfs, err := repos(dir)
 	if err != nil {
 		return nil, err
 	}
 	var rl []string
+	for _, rf := range rfs {
+		for _, re := range rf.repoEntries {
+			rl = append(rl, re.URL)
+		}
+	}
+	return rl, nil
+}
+
+func repos(dir string) ([]repoFile, error) {
+	fl, err := filepath.Glob(filepath.Join(dir, "*.repo"))
+	if err != nil {
+		return nil, err
+	}
+	var rfs []repoFile
 	for _, f := range fl {
-		rfs, err := unmarshalRepoFile(f)
+		rf, err := unmarshalRepoFile(f)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		for _, rf := range rfs {
-			rl = append(rl, rf.URL)
+		if rf.fileName != "" {
+			rfs = append(rfs, rf)
 		}
 	}
-	return rl, nil
+	return rfs, nil
 }
 
 func writeState(s *client.GooGetState, sf string) error {
@@ -335,6 +364,9 @@ func run() int {
 	cmdr.Register(&installedCmd{}, "package query")
 	cmdr.Register(&latestCmd{}, "package query")
 	cmdr.Register(&availableCmd{}, "package query")
+	cmdr.Register(&listReposCmd{}, "repository management")
+	cmdr.Register(&addRepoCmd{}, "repository management")
+	cmdr.Register(&rmRepoCmd{}, "repository management")
 	cmdr.Register(&cleanCmd{}, "")
 
 	cmdr.ImportantFlag("verbose")

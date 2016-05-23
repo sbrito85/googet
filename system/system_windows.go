@@ -31,12 +31,12 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const regBase = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\"
+const uninstallBase = `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`
 
 var msiSuccessCodes = []int{1641, 3010}
 
 func addUninstallEntry(dir string, ps *goolib.PkgSpec) error {
-	reg := regBase + "GooGet - " + ps.Name
+	reg := uninstallBase + "GooGet - " + ps.Name
 	logger.Infof("Adding uninstall entry %q to registry.", reg)
 	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, reg, registry.WRITE)
 	if err != nil {
@@ -49,7 +49,7 @@ func addUninstallEntry(dir string, ps *goolib.PkgSpec) error {
 	table := []struct {
 		name, value string
 	}{
-		{"UninstallString", fmt.Sprintf("%s -no_confirm remove %s", exe, ps.Name)},
+		{"UninstallString", fmt.Sprintf("%s -noconfirm remove %s", exe, ps.Name)},
 		{"InstallLocation", dir},
 		{"DisplayVersion", ps.Version},
 		{"DisplayName", "GooGet - " + ps.Name},
@@ -63,7 +63,7 @@ func addUninstallEntry(dir string, ps *goolib.PkgSpec) error {
 }
 
 func removeUninstallEntry(name string) error {
-	reg := regBase + "GooGet - " + name
+	reg := uninstallBase + "GooGet - " + name
 	logger.Infof("Removing uninstall entry %q from registry.", reg)
 	return registry.DeleteKey(registry.LOCAL_MACHINE, reg)
 }
@@ -112,6 +112,7 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 	if err := addUninstallEntry(dir, ps); err != nil {
 		logger.Error(err)
 	}
+
 	return nil
 }
 
@@ -156,6 +157,7 @@ func Uninstall(st client.PackageState) error {
 	if err := removeUninstallEntry(st.PackageSpec.Name); err != nil {
 		logger.Error(err)
 	}
+
 	return nil
 }
 
