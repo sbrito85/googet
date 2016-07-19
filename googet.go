@@ -48,14 +48,15 @@ const (
 )
 
 var (
-	rootDir   string
-	noConfirm bool
-	verbose   bool
-	systemLog bool
-	showVer   bool
-	version   string
-	cacheLife = 3 * time.Minute
-	archs     []string
+	rootDir     string
+	noConfirm   bool
+	verbose     bool
+	systemLog   bool
+	showVer     bool
+	version     string
+	cacheLife   = 3 * time.Minute
+	archs       []string
+	proxyServer string
 )
 
 type packageMap map[string]string
@@ -121,8 +122,9 @@ func unmarshalRepoFile(p string) (repoFile, error) {
 }
 
 type conf struct {
-	Archs     []string
-	CacheLife string
+	Archs       []string
+	CacheLife   string
+	ProxyServer string
 }
 
 func unmarshalConfFile(p string) (*conf, error) {
@@ -333,6 +335,10 @@ func readConf(cf string) {
 		if err != nil {
 			logger.Error(err)
 		}
+	}
+
+	if gc.ProxyServer != "" {
+		proxyServer = gc.ProxyServer
 	}
 }
 
