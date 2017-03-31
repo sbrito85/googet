@@ -37,7 +37,7 @@ var outputDir = flag.String("output_dir", "", "where to put the built package")
 type fileMap map[string][]string
 
 // walkDir returns a list of all files in directory and subdirectories, it is similar
-// to filepath.Walk but works even if dir is a symlink, which is the case with blaze Filesets.
+// to filepath.Walk but works even if dir is a symlink.
 func walkDir(dir string) ([]string, error) {
 	rl, err := ioutil.ReadDir(dir)
 	if err != nil {
