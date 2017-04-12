@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	yaml "github.com/cloudfoundry-incubator/candiedyaml"
+	"github.com/go-yaml/yaml"
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
 	"github.com/google/googet/system"
