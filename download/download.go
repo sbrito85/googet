@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"path"
+
 	humanize "github.com/dustin/go-humanize"
 	"github.com/google/googet/client"
 	"github.com/google/googet/goolib"
@@ -65,10 +67,10 @@ func FromRepo(rs goolib.RepoSpec, repo, dir string, proxyServer string) (string,
 		return "", err
 	}
 	pkgURL := &url.URL{
-		Scheme: repoURL.Scheme,
-		Host: repoURL.Host,
-		User: repoURL.User,
-		RawPath: filepath.Join(filepath.Dir(repoURL.EscapedPath()), rs.Source),
+		Scheme:  repoURL.Scheme,
+		Host:    repoURL.Host,
+		User:    repoURL.User,
+		RawPath: path.Join(path.Dir(repoURL.EscapedPath()), rs.Source),
 	}
 	pkgURL.Path, err = url.PathUnescape(pkgURL.RawPath)
 	if err != nil {
@@ -112,11 +114,11 @@ func download(r io.Reader, p, chksum string, proxyServer string) (err error) {
 		return err
 	}
 
-	logger.Infof("Successfully downloaded %s", humanize.IBytes(uint64(b)))
-
 	if hex.EncodeToString(hash.Sum(nil)) != chksum {
 		return errors.New("checksum of downloaded file does not match expected checksum")
 	}
+
+	logger.Infof("Successfully downloaded %s", humanize.IBytes(uint64(b)))
 	return nil
 }
 
