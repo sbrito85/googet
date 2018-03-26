@@ -32,12 +32,13 @@ import (
 )
 
 var (
-	root      = flag.String("root", "", "root location")
-	interval  = flag.Duration("interval", 5*time.Minute, "duration between refresh runs")
-	verbose   = flag.Bool("verbose", false, "print info level logs to stdout")
-	systemLog = flag.Bool("system_log", false, "log to Linux Syslog or Windows Event Log")
-	port      = flag.Int("port", 8000, "listen port")
-	repoName  = flag.String("repo_name", "repo", "name of the repo to setup")
+	root        = flag.String("root", "", "root location")
+	interval    = flag.Duration("interval", 5*time.Minute, "duration between refresh runs")
+	verbose     = flag.Bool("verbose", false, "print info level logs to stdout")
+	systemLog   = flag.Bool("system_log", false, "log to Linux Syslog or Windows Event Log")
+	port        = flag.Int("port", 8000, "listen port")
+	repoName    = flag.String("repo_name", "repo", "name of the repo to setup")
+	packagePath = flag.String("package_path", "packages", "path under both the filesystem (-root flag) and webserver root where packages are located")
 
 	repoContents *repoPackages
 )
@@ -59,7 +60,7 @@ func (r *repoPackages) add(src, chksum string, spec *goolib.PkgSpec) {
 	})
 }
 
-func packageInfo(pkgPath, packageDir string) error {
+func packageInfo(pkgPath string) error {
 	pkg := filepath.Base(pkgPath)
 	pi := goolib.PkgNameSplit(strings.TrimSuffix(pkg, ".goo"))
 
@@ -83,7 +84,7 @@ func packageInfo(pkgPath, packageDir string) error {
 	}
 	defer f.Close()
 
-	repoContents.add(path.Join(packageDir, pkg), goolib.Checksum(f), spec)
+	repoContents.add(path.Join(*packagePath, pkg), goolib.Checksum(f), spec)
 	return nil
 }
 
@@ -104,7 +105,7 @@ func runSync(packageDir string) error {
 		wg.Add(1)
 		go func(pkg string) {
 			defer wg.Done()
-			if err := packageInfo(pkg, packageDir); err != nil {
+			if err := packageInfo(pkg); err != nil {
 				logger.Error(err)
 			}
 		}(pkg)
@@ -138,13 +139,14 @@ func main() {
 
 	logger.Init("GooServe", *verbose, *systemLog, ioutil.Discard)
 
-	packageDir := filepath.Join(*root, "packages")
+	packageDir := filepath.Join(*root, *packagePath)
 	if err := runSync(packageDir); err != nil {
 		logger.Error(err)
 	}
 
 	http.HandleFunc(fmt.Sprintf("/%s/index", *repoName), serve)
-	http.Handle("/packages/", http.StripPrefix("/packages/", http.FileServer(http.Dir(packageDir))))
+	prefix := "/" + *packagePath + "/"
+	http.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(packageDir))))
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 		if err != nil {
