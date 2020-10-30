@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -157,7 +158,6 @@ func decode(index io.ReadCloser, ct, url, cf string) ([]goolib.RepoSpec, error) 
 // if mtime is less than cacheLife.
 // Sucessfully unmarshalled contents will be written to a cache.
 func unmarshalRepoPackages(ctx context.Context, p, cacheDir string, cacheLife time.Duration, proxyServer string) ([]goolib.RepoSpec, error) {
-
 	cf := filepath.Join(cacheDir, fmt.Sprintf("%x.rs", sha256.Sum256([]byte(p))))
 
 	fi, err := oswrap.Stat(cf)
@@ -188,30 +188,53 @@ func unmarshalRepoPackages(ctx context.Context, p, cacheDir string, cacheLife ti
 	return unmarshalRepoPackagesHTTP(p, cf, proxyServer)
 }
 
-func unmarshalRepoPackagesHTTP(repoURL string, cf string, proxyServer string) ([]goolib.RepoSpec, error) {
-	httpClient := &http.Client{}
+// Get gets a url using an optional proxy server, retrying once on any error.
+func Get(path, proxyServer string) (*http.Response, error) {
+	httpClient := http.DefaultClient
+	proxy := http.ProxyFromEnvironment
 	if proxyServer != "" {
 		proxyURL, err := url.Parse(proxyServer)
 		if err != nil {
-			logger.Fatal(err)
+			return nil, err
 		}
-		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+		proxy = http.ProxyURL(proxyURL)
 	}
+	httpClient.Transport = &http.Transport{
+		Proxy: proxy,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       60 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	resp, err := httpClient.Get(path)
+	// We retry on any error once as this mitigates some
+	// connection issues in certain situations.
+	if err == nil {
+		return resp, nil
+	}
+	return httpClient.Get(path)
+}
 
+func unmarshalRepoPackagesHTTP(repoURL string, cf string, proxyServer string) ([]goolib.RepoSpec, error) {
 	indexURL := repoURL + "/index.gz"
 	ct := "application/x-gzip"
 	logger.Infof("Fetching %q", indexURL)
-	res, err := httpClient.Get(indexURL)
+	res, err := Get(indexURL, proxyServer)
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode != 200 {
-		logger.Infof("Gzipped index returned status: %q, trying plain JSON.", res.Status)
+	if err != nil || res.StatusCode != 200 {
+		//logger.Infof("Gzipped index returned status: %q, trying plain JSON.", res.Status)
 		indexURL = repoURL + "/index"
 		ct = "application/json"
 		logger.Infof("Fetching %q", indexURL)
-		res, err = httpClient.Get(indexURL)
+		res, err = Get(indexURL, proxyServer)
 		if err != nil {
 			return nil, err
 		}

@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -59,16 +58,7 @@ func Package(ctx context.Context, pkgURL, dst, chksum, proxyServer string) error
 
 // Downloads a package from an HTTP(s) server
 func packageHTTP(pkgURL, dst, chksum string, proxyServer string) error {
-	httpClient := &http.Client{}
-	if proxyServer != "" {
-		proxyURL, err := url.Parse(proxyServer)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
-	}
-
-	resp, err := httpClient.Get(pkgURL)
+	resp, err := client.Get(pkgURL, proxyServer)
 	if err != nil {
 		return err
 	}
