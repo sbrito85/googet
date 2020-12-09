@@ -56,13 +56,13 @@ copy *.goo %GOOREPO%\packages
 go run server\gooserve.go -root %GOOREPO% -save_index %GOOREPO%\%REPONAME%\index
 gsutil mb --project my-project my-googet-server
 gsutil rsync -r %GOOREPO% gs://my-googet-server
-./googet.exe addrepo gcs gs://my-googet-server
+googet addrepo gcs gs://my-googet-server
 
 rem This command should print 'gcs: gs://my-googet-server'
-./googet.exec listrepos
+googet listrepos
 
 rem This command should list the googet package and any other packages in your repo
-./googet.exe available -sources gs://my-googet-server/
+googet available -sources gs://my-googet-server/
 
 ```
 
