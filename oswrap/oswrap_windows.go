@@ -18,6 +18,7 @@ package oswrap
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -198,6 +199,16 @@ func Stat(name string) (os.FileInfo, error) {
 		return nil, err
 	}
 	return os.Stat(name)
+}
+
+// ReadDir calls ioutil.ReadDir with name normalized
+// Upgrade to os.ReadDir in future. https://golang.org/pkg/io/ioutil/#ReadDir
+func ReadDir(root string) ([]os.FileInfo, error) {
+	path, err := normPath(root)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadDir(path)
 }
 
 // Walk calls filepath.Walk with name normalized, and un-normalizes name before
