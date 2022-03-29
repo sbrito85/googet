@@ -8,8 +8,6 @@ package repository solution primarily designed for Windows.
 GooGet is shipped with the official Google Cloud Platform Windows images and is
 used to maintain the guest environment.
 
-This is not an official Google product.
-
 ## Build
 
 To build and package googet run
