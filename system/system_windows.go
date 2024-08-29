@@ -17,10 +17,12 @@ limitations under the License.
 package system
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -99,6 +101,22 @@ func uninstallString(installSource, extension string) string {
 				}
 				return un
 			}
+		default:
+			if strings.ToLower(v) == strings.ToLower(installSource) {
+				// Check if the value exists, move on if it doesn't
+				un, _, err := q.GetStringValue("QuietUninstallString")
+				if err != nil {
+					continue
+				}
+				if un == "" {
+					un, _, err = q.GetStringValue("UninstallString")
+					if err != nil {
+						// UninstallString not found, move on to next entry
+						continue
+					}
+				}
+				return un
+			}
 		}
 	}
 	return ""
@@ -165,6 +183,16 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 			un.Args = commands[1:]
 			un.Args = append([]string{"/qn", "/norestart"}, un.Args...)
 			filePath = un.Path
+		default:
+			r := regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
+			u := uninstallString(ps.Name, "")
+			commands := r.FindAllString(u, -1)
+			if len(commands) > 0 {
+				// Remove the quotes from the install string since we handle that below
+				un.Path = strings.Replace(commands[0], "\"", "", -1)
+				un.Args = commands[1:]
+				filePath = un.Path
+			}
 		}
 		if un.Path == "" {
 			return nil
@@ -173,7 +201,12 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 
 	logger.Infof("Running uninstall command: %q", un.Path)
 	// logging is only useful for failed uninstall
-	out, err := oswrap.Create(filepath.Join(dir, un.Path+".log"))
+	// Only append the directory if the folder structure doesn't exist
+	logPath := fmt.Sprintf("%s.log", un.Path)
+	if _, err := os.Stat(un.Path); errors.Is(err, os.ErrNotExist) {
+		logPath = filepath.Join(dir, logPath)
+	}
+	out, err := oswrap.Create(logPath)
 	if err != nil {
 		return err
 	}
