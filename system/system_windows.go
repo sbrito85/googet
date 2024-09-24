@@ -156,7 +156,7 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 		err = goolib.Run(exec.Command("wusa", args...), ec, out)
 	case ".exe":
 		err = goolib.Run(exec.Command(s, in.Args...), ec, out)
-	case ".msix",".msixbundle":
+	case ".msix", ".msixbundle":
 		// Add-AppxProvisionedPackage will install for all users.
 		installCmd := fmt.Sprintf("Add-AppxProvisionedPackage -online -PackagePath %v -SkipLicense", s)
 		args := append([]string{installCmd}, in.Args...)
@@ -190,7 +190,7 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 			un.Args = commands[1:]
 			un.Args = append([]string{"/qn", "/norestart"}, un.Args...)
 			filePath = un.Path
-		case ".msix",".msixbundle":
+		case ".msix", ".msixbundle":
 			un.Path = ps.Install.Path
 			filePath = un.Path
 		default:
@@ -239,7 +239,7 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 		err = goolib.Run(exec.Command("wusa", args...), ec, out)
 	case ".exe":
 		err = goolib.Run(exec.Command(filePath, un.Args...), ec, out)
-	case ".msix",".msixbundle":
+	case ".msix", ".msixbundle":
 		s := strings.Split(filepath.Base(filePath), "_")[0]
 		removeCmd := fmt.Sprintf(`Get-AppxProvisionedPackage -online | Where {$_.DisplayName -match "%v*"} | Remove-AppProvisionedPackage -online -AllUsers`, s)
 		args := append([]string{removeCmd}, un.Args...)
