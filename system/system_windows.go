@@ -72,7 +72,7 @@ func removeUninstallEntry(name string) error {
 	return registry.DeleteKey(registry.LOCAL_MACHINE, reg)
 }
 
-func uninstallString(installSource, extension string) string {
+func uninstallString(publisher, installSource, programName, extension string) string {
 	productroot := `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, productroot, registry.ENUMERATE_SUB_KEYS)
 	if err != nil {
@@ -102,26 +102,38 @@ func uninstallString(installSource, extension string) string {
 				return un
 			}
 		default:
-			displayName, _, err := q.GetStringValue("DisplayName")
+			for _, v := range publisherNameReg {
+				re := regexp.MustCompile("(?i)" + regex[v])
+				publisher = re.ReplaceAllString(publisher, "")
+			}
+			for _, v := range programNameReg {
+				re := regexp.MustCompile("(?i)" + regex[v])
+				programName = re.ReplaceAllString(programName, "")
+			}
+			publisherReg, _, err := q.GetStringValue("Publisher")
 			if err != nil {
 				continue
 			}
 			// Remove display name whitespace to conform to package name
-			if strings.ToLower(strings.ReplaceAll(displayName, " ", "")) == strings.ToLower(installSource) {
-				// Check if the value exists, move on if it doesn't
-				un, _, err := q.GetStringValue("QuietUninstallString")
-				if err != nil {
-					un, _, err = q.GetStringValue("UninstallString")
+			if strings.ToLower(publisherReg) == strings.ToLower(publisher) {
+				displayName, _, _ := q.GetStringValue("DisplayName")
+				if strings.Contains(strings.ToLower(programName), strings.ToLower(strings.ReplaceAll(displayName, " ", ""))) {
+					// Check if the value exists, move on if it doesn't
+					un, _, err := q.GetStringValue("QuietUninstallString")
 					if err != nil {
-						// UninstallString not found, move on to next entry
-						continue
+						un, _, err = q.GetStringValue("UninstallString")
+						if err != nil {
+							// UninstallString not found, move on to next entry
+							continue
+						}
 					}
+					return un
 				}
-				return un
 			}
 		}
 	}
 	return ""
+
 }
 
 // Install performs a system specfic install given a package extraction directory and a PkgSpec struct.
@@ -183,7 +195,7 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 	if un.Path == "" {
 		switch filepath.Ext(ps.Install.Path) {
 		case ".msi":
-			u := uninstallString(dir, "msi")
+			u := uninstallString(ps.Authors, dir, ps.Name, "msi")
 			u = strings.ReplaceAll(u, `/I`, `/X`)
 			commands := strings.Split(u, " ")
 			un.Path = commands[0]
@@ -195,7 +207,7 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 			filePath = un.Path
 		default:
 			r := regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
-			u := uninstallString(ps.Name, "")
+			u := uninstallString(ps.Authors, dir, ps.Name, "")
 			commands := r.FindAllString(u, -1)
 			if len(commands) > 0 {
 				// Remove the quotes from the install string since we handle that below
