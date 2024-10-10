@@ -191,22 +191,22 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 func Uninstall(dir string, ps *goolib.PkgSpec) error {
 	var filePath string
 	un := ps.Uninstall
+	r := regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
 	// Automatically determine uninstall script if none is specified in spec.
 	if un.Path == "" {
 		switch filepath.Ext(ps.Install.Path) {
 		case ".msi":
 			u := uninstallString(ps.Authors, dir, ps.Name, "msi")
 			u = strings.ReplaceAll(u, `/I`, `/X`)
-			commands := strings.Split(u, " ")
-			un.Path = commands[0]
-			un.Args = commands[1:]
-			un.Args = append([]string{"/qn", "/norestart"}, un.Args...)
+			commands := r.FindAllString(u, -1)
+			un.Path = strings.Replace(commands[0], "\"", "", -1)
+			un.Args = []string{"/qn", "/norestart"}
+			un.Args = append(commands[1:], un.Args...)
 			filePath = un.Path
 		case ".msix", ".msixbundle":
 			un.Path = ps.Install.Path
 			filePath = un.Path
 		default:
-			r := regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
 			u := uninstallString(ps.Authors, dir, ps.Name, "")
 			commands := r.FindAllString(u, -1)
 			if len(commands) > 0 {
