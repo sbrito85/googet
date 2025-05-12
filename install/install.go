@@ -168,24 +168,22 @@ func FromRepo(ctx context.Context, pi goolib.PackageInfo, repo, cache string, rm
 }
 
 // FromDisk installs a local .goo file.
-func FromDisk(arg, cache string, state *client.GooGetState, dbOnly, ri bool) error {
+func FromDisk(arg, cache string, state *client.GooGetState, dbOnly, ri bool) (client.GooGetState, error) {
 	if _, err := oswrap.Stat(arg); err != nil {
-		return err
+		return nil, err
 	}
-
 	zs, err := extractSpec(arg)
 	if err != nil {
-		return fmt.Errorf("error extracting spec file: %v", err)
+		return nil, fmt.Errorf("error extracting spec file: %v", err)
 	}
-
 	if !ri {
 		ni, err := NeedsInstallation(goolib.PackageInfo{Name: zs.Name, Arch: zs.Arch, Ver: zs.Version}, *state)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ni {
 			fmt.Printf("%s.%s.%s or a newer version is already installed on the system\n", zs.Name, zs.Arch, zs.Version)
-			return nil
+			return nil, nil
 		}
 	}
 
@@ -193,60 +191,55 @@ func FromDisk(arg, cache string, state *client.GooGetState, dbOnly, ri bool) err
 	fmt.Printf("Installing %s %s...\n", zs.Name, zs.Version)
 
 	if err := resolveConflicts(zs, state); err != nil {
-		return err
+		return nil, err
 	}
 	for p, ver := range zs.PkgDependencies {
 		pi := goolib.PkgNameSplit(p)
 		mi, err := minInstalled(goolib.PackageInfo{Name: pi.Name, Arch: pi.Arch, Ver: ver}, *state)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if mi {
 			logger.Infof("Dependency met: %s.%s with version greater than %s installed", pi.Name, pi.Arch, ver)
 			continue
 		}
-		return fmt.Errorf("package dependency %s %s (min version %s) not installed", pi.Name, pi.Arch, ver)
+		return nil, fmt.Errorf("package dependency %s %s (min version %s) not installed", pi.Name, pi.Arch, ver)
 	}
 	for _, pkg := range zs.Replaces {
 		pi := goolib.PkgNameSplit(pkg)
 		ins, err := minInstalled(goolib.PackageInfo{Name: pi.Name, Arch: pi.Arch, Ver: pi.Ver}, *state)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if ins {
-			return fmt.Errorf("cannot install, replaces installed package, remove first then try installation again: %s", pi)
+			return nil, fmt.Errorf("cannot install, replaces installed package, remove first then try installation again: %s", pi)
 		}
 	}
 
 	dst := filepath.Join(cache, goolib.PackageInfo{Name: zs.Name, Arch: zs.Arch, Ver: zs.Version}.PkgName())
 	if err := copyPkg(arg, dst); err != nil {
-		return err
+		return nil, err
 	}
 
 	insFiles, err := installPkg(dst, zs, dbOnly)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if ri {
 		logger.Infof("Reinstallation of %q, version %q completed", zs.Name, zs.Version)
 		fmt.Printf("Reinstallation of %s completed\n", zs.Name)
-		return nil
+		return nil, nil
 	}
 
 	logger.Infof("Installation of %q, version %q completed", zs.Name, zs.Version)
 	fmt.Printf("Installation of %s completed\n", zs.Name)
 
-	// Clean up old version, if applicable.
-	pi := goolib.PackageInfo{Name: zs.Name, Arch: zs.Arch, Ver: ""}
-	cleanOld(state, pi, insFiles, dbOnly)
-
-	state.Add(client.PackageState{
+	return client.GooGetState{client.PackageState{
 		LocalPath:      dst,
 		PackageSpec:    zs,
 		InstalledFiles: insFiles,
-	})
-	return nil
+	}}, nil
 }
 
 // Reinstall reinstalls and optionally redownloads, a package.

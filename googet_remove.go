@@ -20,10 +20,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"path/filepath"
+	"os"
 
+<<<<<<< Updated upstream
 	"github.com/google/googet/v2/client"
+=======
+	"github.com/google/googet/v2/db"
+>>>>>>> Stashed changes
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/remove"
 	"github.com/google/logger"
@@ -47,9 +51,9 @@ func (cmd *removeCmd) SetFlags(f *flag.FlagSet) {
 func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	exitCode := subcommands.ExitSuccess
 
-	sf := filepath.Join(rootDir, stateFile)
-	state, err := readState(sf)
+	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
+<<<<<<< Updated upstream
 		logger.Error(err)
 	}
 
@@ -58,12 +62,19 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 		logger.Fatal(err)
 	}
 
+=======
+		logger.Fatal(err)
+	} 
+	state := goodb.FetchPkgs()
+	var pDeps  map[string]string
+>>>>>>> Stashed changes
 	for _, arg := range flags.Args() {
 		pi := goolib.PkgNameSplit(arg)
 		var ins []string
 		for _, ps := range *state {
 			if ps.Match(pi) {
 				ins = append(ins, ps.PackageSpec.Name+"."+ps.PackageSpec.Arch)
+				pDeps = ps.PackageSpec.PkgDependencies
 			}
 		}
 		if len(ins) == 0 {
@@ -89,16 +100,23 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 			}
 		}
 		fmt.Printf("Removing %s and all dependencies...\n", pi.Name)
+<<<<<<< Updated upstream
 		if err = remove.All(ctx, pi, deps, state, cmd.dbOnly, downloader); err != nil {
+=======
+		if err := remove.All(ctx, pi, deps, state, cmd.dbOnly, proxyServer); err != nil {
+>>>>>>> Stashed changes
 			logger.Errorf("error removing %s, %v", arg, err)
 			exitCode = subcommands.ExitFailure
 			continue
 		}
 		logger.Infof("Removal of %q and dependant packages completed", pi.Name)
 		fmt.Printf("Removal of %s completed\n", pi.Name)
-		if err := writeState(state, sf); err != nil {
-			logger.Fatalf("error writing state file: %v", err)
+		goodb.RemovePkg(pi.Name)
+		for d := range pDeps {
+			di := goolib.PkgNameSplit(d)
+			goodb.RemovePkg(di.Name)
 		}
+
 	}
 	return exitCode
 }

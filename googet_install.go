@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
+	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/install"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
@@ -51,6 +52,11 @@ func (cmd *installCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
+	if err != nil {
+		logger.Fatal(err)
+	} 
+	var state client.GooGetState
 	if len(flags.Args()) == 0 {
 		fmt.Printf("%s\nUsage: %s\n", cmd.Synopsis(), cmd.Usage())
 		return subcommands.ExitFailure
@@ -65,11 +71,6 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 	exitCode := subcommands.ExitSuccess
 
 	cache := filepath.Join(rootDir, cacheDir)
-	sf := filepath.Join(rootDir, stateFile)
-	state, err := readState(sf)
-	if err != nil {
-		logger.Fatal(err)
-	}
 
 	if len(args) == 0 {
 		return exitCode
@@ -94,26 +95,34 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 					continue
 				}
 			}
-			if err := install.FromDisk(arg, cache, state, cmd.dbOnly, cmd.reinstall); err != nil {
+			state = *goodb.FetchPkgs()
+			insPkg, err := install.FromDisk(arg, cache, &state, cmd.dbOnly, cmd.reinstall)
+			if err != nil {
 				logger.Errorf("Error installing %s: %v", arg, err)
 				exitCode = subcommands.ExitFailure
 				continue
 			}
-			if err := writeState(state, sf); err != nil {
-				logger.Fatalf("Error writing state file: %v", err)
+			fmt.Println("%v", insPkg)
+			if err := goodb.WriteStateToDB(&insPkg); err != nil {
+				logger.Fatalf("Error writing state database: %v", err)
 			}
 			continue
 		}
 
 		pi := goolib.PkgNameSplit(arg)
+		state = append(state, *goodb.FetchPkg(pi.Name))
 		if cmd.reinstall {
+<<<<<<< Updated upstream
 			if err := reinstall(ctx, pi, *state, cmd.redownload, downloader); err != nil {
+=======
+			if err := reinstall(ctx, pi, state, cmd.redownload); err != nil {
+>>>>>>> Stashed changes
 				logger.Errorf("Error reinstalling %s: %v", pi.Name, err)
 				exitCode = subcommands.ExitFailure
 				continue
 			}
-			if err := writeState(state, sf); err != nil {
-				logger.Fatalf("Error writing state file: %v", err)
+			if err := goodb.WriteStateToDB(&state); err != nil {
+				logger.Fatalf("Error writing state db: %v", err)
 			}
 			continue
 		}
@@ -144,7 +153,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 			exitCode = subcommands.ExitFailure
 			continue
 		}
-		ni, err := install.NeedsInstallation(pi, *state)
+		ni, err := install.NeedsInstallation(pi, state)
 		if err != nil {
 			logger.Error(err)
 			exitCode = subcommands.ExitFailure
@@ -155,7 +164,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 			continue
 		}
 		if !noConfirm {
-			b, err := enumerateDeps(pi, rm, r, archs, *state)
+			b, err := enumerateDeps(pi, rm, r, archs, state)
 			if err != nil {
 				logger.Error(err)
 				exitCode = subcommands.ExitFailure
@@ -166,12 +175,16 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 				continue
 			}
 		}
+<<<<<<< Updated upstream
 		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, state, cmd.dbOnly, downloader); err != nil {
+=======
+		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &state, cmd.dbOnly, proxyServer); err != nil {
+>>>>>>> Stashed changes
 			logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
 			exitCode = subcommands.ExitFailure
 			continue
 		}
-		if err := writeState(state, sf); err != nil {
+		if err := goodb.WriteStateToDB(&state); err != nil {
 			logger.Fatalf("error writing state file: %v", err)
 		}
 	}

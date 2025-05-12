@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+    "github.com/google/googet/v2/db"
 
 	"github.com/go-yaml/yaml"
 	"github.com/google/googet/v2/client"
@@ -40,6 +41,7 @@ import (
 
 const (
 	stateFile = "googet.state"
+	dbFile =    "googet.db"
 	confFile  = "googet.conf"
 	logFile   = "googet.log"
 	cacheDir  = "cache"
@@ -504,6 +506,7 @@ func main() {
 	cmdr.Register(&latestCmd{}, "package query")
 	cmdr.Register(&availableCmd{}, "package query")
 	cmdr.Register(&listReposCmd{}, "repository management")
+	cmdr.Register(&showCmd{}, "repository management")
 	cmdr.Register(&addRepoCmd{}, "repository management")
 	cmdr.Register(&rmRepoCmd{}, "repository management")
 	cmdr.Register(&cleanCmd{}, "")
@@ -522,7 +525,21 @@ func main() {
 	if err := os.MkdirAll(rootDir, 0774); err != nil {
 		logger.Fatalln("Error setting up root directory:", err)
 	}
-
+	dbPath := filepath.Join(rootDir, dbFile)
+	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+		fmt.Println("Creating Googet DB and converting State file...")
+		goodb, err := db.NewDB(dbPath)
+		if err != nil {
+			logger.Fatal(err)
+		} 
+		//check to see if state file still exists, then convert and remove old state.
+		sf := filepath.Join(rootDir, stateFile)
+		state, err := readState(sf)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		goodb.WriteStateToDB(state)
+	}
 	lockFile = filepath.Join(rootDir, "googet.lock")
 	if err := obtainLock(lockFile); err != nil {
 		logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)

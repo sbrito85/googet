@@ -23,9 +23,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
@@ -51,24 +51,28 @@ func (cmd *installedCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	var filter string
+	var state client.GooGetState
+	var displayText string
+	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
+	if err != nil {
+		logger.Fatal(err)
+	} 
 	switch f.NArg() {
 	case 0:
-		filter = ""
+		state = *goodb.FetchPkgs()
+		displayText = "Installed packages:"
 	case 1:
-		filter = f.Arg(0)
+		state = append(state, *goodb.FetchPkg(f.Arg(0)))
+		displayText = fmt.Sprintf("Installed packages matching %q:\n", f.Arg(0))
 	default:
 		fmt.Fprintln(os.Stderr, "Excessive arguments")
 		f.Usage()
 		return subcommands.ExitUsageError
 	}
+	
 
-	state, err := readState(filepath.Join(rootDir, stateFile))
-	if err != nil {
-		logger.Fatal(err)
-	}
 
-	pm := installedPackages(*state)
+	pm := installedPackages(state)
 	if len(pm) == 0 {
 		fmt.Println("No packages installed.")
 		return subcommands.ExitSuccess
@@ -80,40 +84,36 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 	}
 
 	sort.Strings(pl)
-	if filter != "" {
-		fmt.Printf("Installed packages matching %q:\n", filter)
-	} else {
-		fmt.Println("Installed packages:")
-	}
+	fmt.Printf(displayText)
+
 	exitCode := subcommands.ExitFailure
 	for _, p := range pl {
-		if strings.Contains(p, filter) {
-			exitCode = subcommands.ExitSuccess
-			pi := goolib.PkgNameSplit(p)
+		exitCode = subcommands.ExitSuccess
+		pi := goolib.PkgNameSplit(p)
 
-			if cmd.info {
-				local(pi, *state)
+		if cmd.info {
+			local(pi, state)
+			continue
+		}
+		fmt.Println(" ", pi.Name+"."+pi.Arch+" "+pi.Ver)
+
+		if cmd.files {
+			ps, err := state.GetPackageState(pi)
+			if err != nil {
+				logger.Errorf("Unable to get file list for package %q.", p)
 				continue
 			}
-			fmt.Println(" ", pi.Name+"."+pi.Arch+" "+pi.Ver)
-
-			if cmd.files {
-				ps, err := state.GetPackageState(pi)
-				if err != nil {
-					logger.Errorf("Unable to get file list for package %q.", p)
-					continue
-				}
-				if len(ps.InstalledFiles) == 0 {
-					fmt.Println("  - No files directly managed by GooGet.")
-				}
-				for file := range ps.InstalledFiles {
-					fmt.Println("  -", file)
-				}
+			if len(ps.InstalledFiles) == 0 {
+				fmt.Println("  - No files directly managed by GooGet.")
+			}
+			for file := range ps.InstalledFiles {
+				fmt.Println("  -", file)
 			}
 		}
+		
 	}
 	if exitCode != subcommands.ExitSuccess {
-		fmt.Fprintf(os.Stderr, "No package matching filter %q installed.\n", filter)
+		fmt.Fprintf(os.Stderr, "No package matching filter %q installed.\n", f.Arg(0))
 	}
 	return exitCode
 }

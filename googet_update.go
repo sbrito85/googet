@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
@@ -47,12 +48,12 @@ func (cmd *updateCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (cmd *updateCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	cache := filepath.Join(rootDir, cacheDir)
-	sf := filepath.Join(rootDir, stateFile)
-	state, err := readState(sf)
+	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
-	}
+	} 
+	cache := filepath.Join(rootDir, cacheDir)
+	state := goodb.FetchPkgs()
 
 	pm := installedPackages(*state)
 	if len(pm) == 0 {
@@ -100,9 +101,9 @@ func (cmd *updateCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfa
 		}
 	}
 
-	if err := writeState(state, sf); err != nil {
+	/*if err := writeState(state, sf); err != nil {
 		logger.Fatalf("Error writing state file: %v", err)
-	}
+	}*/
 
 	return exitCode
 }
