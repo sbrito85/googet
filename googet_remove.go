@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"os"
 
-<<<<<<< Updated upstream
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/goolib"
