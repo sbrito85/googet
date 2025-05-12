@@ -113,7 +113,11 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 		state = append(state, *goodb.FetchPkg(pi.Name))
 		if cmd.reinstall {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 			if err := reinstall(ctx, pi, *state, cmd.redownload, downloader); err != nil {
+=======
+			if err := reinstall(ctx, pi, state, cmd.redownload); err != nil {
+>>>>>>> Stashed changes
 =======
 			if err := reinstall(ctx, pi, state, cmd.redownload); err != nil {
 >>>>>>> Stashed changes
@@ -176,7 +180,11 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 			}
 		}
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, state, cmd.dbOnly, downloader); err != nil {
+=======
+		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &state, cmd.dbOnly, proxyServer); err != nil {
+>>>>>>> Stashed changes
 =======
 		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &state, cmd.dbOnly, proxyServer); err != nil {
 >>>>>>> Stashed changes
