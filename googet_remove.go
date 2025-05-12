@@ -24,14 +24,8 @@ import (
 	"os"
 
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
 	"github.com/google/googet/v2/client"
-=======
 	"github.com/google/googet/v2/db"
->>>>>>> Stashed changes
-=======
-	"github.com/google/googet/v2/db"
->>>>>>> Stashed changes
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/remove"
 	"github.com/google/logger"
@@ -57,27 +51,15 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 
 	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 		logger.Error(err)
 	}
 
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
 		logger.Fatal(err)
-	}
-
-=======
-=======
->>>>>>> Stashed changes
-		logger.Fatal(err)
 	} 
 	state := goodb.FetchPkgs()
 	var pDeps  map[string]string
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 	for _, arg := range flags.Args() {
 		pi := goolib.PkgNameSplit(arg)
 		var ins []string
@@ -110,15 +92,7 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 			}
 		}
 		fmt.Printf("Removing %s and all dependencies...\n", pi.Name)
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 		if err = remove.All(ctx, pi, deps, state, cmd.dbOnly, downloader); err != nil {
-=======
-		if err := remove.All(ctx, pi, deps, state, cmd.dbOnly, proxyServer); err != nil {
->>>>>>> Stashed changes
-=======
-		if err := remove.All(ctx, pi, deps, state, cmd.dbOnly, proxyServer); err != nil {
->>>>>>> Stashed changes
 			logger.Errorf("error removing %s, %v", arg, err)
 			exitCode = subcommands.ExitFailure
 			continue
