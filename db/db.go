@@ -1,3 +1,4 @@
+// Package db manages the googet state sqlite database.
 package db
 
 import (
@@ -20,6 +21,7 @@ type gooDB struct {
 	db *sql.DB
 }
 
+// NewDB returns the googet DB object
 func NewDB(dbFile string) (*gooDB, error) {
 	var gdb gooDB
 	if _, err := os.Stat(dbFile); errors.Is(err, fs.ErrNotExist) {
@@ -34,6 +36,7 @@ func NewDB(dbFile string) (*gooDB, error) {
 	return &gdb, nil
 }
 
+// Create db creates the initial googet database
 func createDB(dbFile string) (*sql.DB, error) {
 	goodb, err := sql.Open("sqlite", dbFile)
 	if err != nil {
@@ -107,7 +110,9 @@ func createDB(dbFile string) (*sql.DB, error) {
 	return goodb, nil
 }
 
-func (g *gooDB) WriteStateToDB(gooState *client.GooGetState) error {
+
+// WriteStateToDB writes new or partial state to the db.
+ func (g *gooDB) WriteStateToDB(gooState *client.GooGetState) error {
 	for _, pkgState := range *gooState {
 		g.addPkg(pkgState)
 	}
@@ -119,7 +124,7 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 
     tx, err := g.db.Begin()
     if err != nil {
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	stmt, err := tx.PrepareContext(context.Background(), `
 	INSERT or REPLACE INTO state (PkgName, SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir) VALUES (
@@ -127,13 +132,13 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	defer stmt.Close()
 	_, err = stmt.ExecContext(context.Background(), spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir, spec.Name)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	stmt, err = tx.PrepareContext(context.Background(), `
 	INSERT or REPLACE INTO pkgspec (PkgName, Version, Arch, Description, License, Authors, Owners, Source, Replaces, Conflicts) VALUES (
@@ -141,13 +146,13 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	_, err = stmt.ExecContext(context.Background(), spec.Name, spec.Version, spec.Arch, spec.Description, spec.License, 
 										   spec.Authors, spec.Owners, spec.Source, strings.Join(spec.Replaces, ","), strings.Join(spec.Conflicts, ","))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
     stmt, err = tx.PrepareContext(context.Background(), `
 	INSERT or REPLACE INTO pkgInstallers (PkgName, ScriptType, Path, Args, ExitCodes) VALUES (
@@ -156,17 +161,17 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	_, err = stmt.ExecContext(context.Background(), spec.Name, "Install", spec.Install.Path, strings.Join(spec.Install.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Install.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	_, err = stmt.ExecContext(context.Background(), spec.Name, "Uninstall", spec.Uninstall.Path, strings.Join(spec.Uninstall.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Uninstall.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	stmt.ExecContext(context.Background(), spec.Name, "Verify", spec.Verify.Path, strings.Join(spec.Verify.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Verify.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 
 	stmt, err = tx.PrepareContext(context.Background(), `
@@ -175,13 +180,13 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	for k, v := range spec.Files {
 		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
-			fmt.Println(err)
+			fmt.Println("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 
@@ -191,13 +196,13 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
     if err != nil {
 		tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	for k, v := range spec.Tags {
 		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
-			fmt.Println(err)
+			fmt.Println("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 	stmt, err = tx.PrepareContext(context.Background(), `
@@ -206,21 +211,22 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
     if err != nil {
     	tx.Rollback()
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 	for k, v := range pkgState.InstalledFiles {
 		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
-			fmt.Println(err)
+			fmt.Println("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Unable to update record %s: %v", spec.Name, err)
 	}
 }
 
+// RemovePkg removes a single package from the googet database
 func (g *gooDB) RemovePkg(packageName string) {
 	removeQuery := fmt.Sprintf(`BEGIN;
 	DELETE FROM state where PkgName = '%[1]v';
@@ -238,6 +244,7 @@ func (g *gooDB) RemovePkg(packageName string) {
 	}
 }
 
+// FetchPkg exports a sinfle package from the googet database
 func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 	var pkgState client.PackageState
 	var pkgSpec goolib.PkgSpec
@@ -380,6 +387,7 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 
 }
 
+// FetchPkgs exports all of the current packages in the googet database
 func (g *gooDB) FetchPkgs() *client.GooGetState {
 	var state client.GooGetState
 

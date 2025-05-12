@@ -112,7 +112,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 		pi := goolib.PkgNameSplit(arg)
 		state = append(state, *goodb.FetchPkg(pi.Name))
 		if cmd.reinstall {
-			if err := reinstall(ctx, pi, *state, cmd.redownload, downloader); err != nil {
+			if err := reinstall(ctx, pi, state, cmd.redownload, downloader); err != nil {
 				logger.Errorf("Error reinstalling %s: %v", pi.Name, err)
 				exitCode = subcommands.ExitFailure
 				continue
@@ -171,7 +171,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 				continue
 			}
 		}
-		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, state, cmd.dbOnly, downloader); err != nil {
+		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &state, cmd.dbOnly, downloader); err != nil {
 			logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
 			exitCode = subcommands.ExitFailure
 			continue
@@ -195,7 +195,6 @@ func reinstall(ctx context.Context, pi goolib.PackageInfo, state client.GooGetSt
 		}
 	}
 	if err := install.Reinstall(ctx, ps, state, rd, downloader); err != nil {
-	if err := install.Reinstall(ctx, ps, state, rd, proxyServer); err != nil {
 		return fmt.Errorf("error reinstalling %s, %v", pi.Name, err)
 	}
 	return nil
