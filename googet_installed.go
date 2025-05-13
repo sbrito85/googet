@@ -56,7 +56,7 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
-	} 
+	}
 	switch f.NArg() {
 	case 0:
 		state = *goodb.FetchPkgs()
@@ -69,8 +69,6 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 		f.Usage()
 		return subcommands.ExitUsageError
 	}
-	
-
 
 	pm := installedPackages(state)
 	if len(pm) == 0 {
@@ -110,7 +108,7 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 				fmt.Println("  -", file)
 			}
 		}
-		
+
 	}
 	if exitCode != subcommands.ExitSuccess {
 		fmt.Fprintf(os.Stderr, "No package matching filter %q installed.\n", f.Arg(0))
