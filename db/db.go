@@ -19,14 +19,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/fs"
-	_ "modernc.org/sqlite" // Import the SQLite driver (unnamed)
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
+
+	_ "modernc.org/sqlite" // Import the SQLite driver (unnamed)
 )
 
 type gooDB struct {
@@ -36,21 +36,21 @@ type gooDB struct {
 // NewDB returns the googet DB object
 func NewDB(dbFile string) (*gooDB, error) {
 	var gdb gooDB
-	if _, err := os.Stat(dbFile); errors.Is(err, fs.ErrNotExist) {
+	var err error
+	if _, err := os.Stat(dbFile); errors.Is(err, os.ErrNotExist) {
 		gdb.db, _ = createDB(dbFile)
 		return &gdb, nil
 	}
-	goodb, err := sql.Open("sqlite", dbFile)
+	gdb.db, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return nil, err
 	}
-	gdb.db = goodb
 	return &gdb, nil
 }
 
 // Create db creates the initial googet database
 func createDB(dbFile string) (*sql.DB, error) {
-	goodb, err := sql.Open("sqlite", dbFile)
+	db, err := sql.Open("sqlite", dbFile)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func createDB(dbFile string) (*sql.DB, error) {
 			Checksum TEXT,
 			LocalPath TEXT,
 			UnpackDir TEXT
-		);
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgspec (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			PkgName TEXT NOT NULL UNIQUE,
@@ -77,7 +77,7 @@ func createDB(dbFile string) (*sql.DB, error) {
 			Source TEXT,
 			Replaces TEXT,
 			Conflicts TEXT
-		);
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgInstallers (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			PkgName TEXT NOT NULL,
@@ -86,45 +86,46 @@ func createDB(dbFile string) (*sql.DB, error) {
 			Args TEXT,
 			ExitCodes TEXT,
 			UNIQUE(PkgName, ScriptType) ON CONFLICT REPLACE
-		);
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgFiles (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			PkgName TEST NOT NULL,
+			PkgName TEXT NOT NULL,
 			FileName TEXT NOT NULL,
 			Path TEXT NOT NULL
-		);
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgDeps (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			PkgName TEST NOT NULL,
+			PkgName TEXT NOT NULL,
 			Dependency TEXT NOT NULL,
 			Version TEXT
-		);
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgInsFiles (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			PkgName TEST NOT NULL,
-			Name NOT NULL,
-			Hash NOT NULL
-		);
+			PkgName TEXT NOT NULL,
+			Name TEXT NOT NULL,
+			Checksum TEXT NOT NULL
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgTags (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			PkgName TEST NOT NULL,
-			Name NOT NULL,
-			Description NOT NULL
-		);
+			PkgName TEXT NOT NULL,
+			Name TEXT NOT NULL,
+			Description TEXT NOT NULL
+		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgMappings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		PkgName TEST NOT NULL,
-		InstalledApp NOT NULL
-		);
+		PkgName TEXT NOT NULL,
+		InstalledApp TEXT NOT NULL
+		) STRICT;
 	COMMIT;
 		`
 
-	_, err = goodb.ExecContext(context.Background(), createDBQuery)
+	_, err = db.ExecContext(context.Background(), createDBQuery)
 	if err != nil {
 		fmt.Printf("%v", err)
+		return nil, err
 	}
 
-	return goodb, nil
+	return db, nil
 }
 
 // WriteStateToDB writes new or partial state to the db.
@@ -151,7 +152,7 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	defer stmt.Close()
-	_, err = stmt.ExecContext(context.Background(), spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir, spec.Name)
+	_, err = stmt.ExecContext(context.Background(), spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir)
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
@@ -222,7 +223,7 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 		}
 	}
 	stmt, err = tx.PrepareContext(context.Background(), `
-	INSERT INTO pkgInsFiles (PkgName, Name, Hash) VALUES (
+	INSERT INTO pkgInsFiles (PkgName, Name, Checksum) VALUES (
 		?, ?, ?)
 	`)
 	if err != nil {
@@ -358,19 +359,19 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		}
 	}
 
-	insFilesQuery := `Select Name, Hash FROM pkgInsFiles Where PkgName = ?`
+	insFilesQuery := `Select Name, Checksum FROM pkgInsFiles Where PkgName = ?`
 	insFiles, err := g.db.Query(insFilesQuery, pkgName)
 	if err != nil {
 		fmt.Printf("%v", err)
 	}
 	stateInsFiles := make(map[string]string)
 	for insFiles.Next() {
-		var name, hash string
+		var name, checksum string
 		err = insFiles.Scan(
 			&name,
-			&hash,
+			&checksum,
 		)
-		stateInsFiles[name] = hash
+		stateInsFiles[name] = checksum
 	}
 	if len(stateInsFiles) != 0 {
 		pkgState.InstalledFiles = stateInsFiles
