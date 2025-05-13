@@ -1,21 +1,33 @@
+/*
+Copyright 2025 Google Inc. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 // Package db manages the googet state sqlite database.
 package db
 
 import (
-	"database/sql"
 	"context"
+	"database/sql"
 	"errors"
-	"strings"
-	"strconv"
-	"os"
-	"io/fs"
 	"fmt"
+	"io/fs"
 	_ "modernc.org/sqlite" // Import the SQLite driver (unnamed)
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
 )
-
 
 type gooDB struct {
 	db *sql.DB
@@ -30,7 +42,7 @@ func NewDB(dbFile string) (*gooDB, error) {
 	}
 	goodb, err := sql.Open("sqlite", dbFile)
 	if err != nil {
-      return nil, err
+		return nil, err
 	}
 	gdb.db = goodb
 	return &gdb, nil
@@ -42,7 +54,7 @@ func createDB(dbFile string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	createDBQuery := `BEGIN;
 	CREATE TABLE IF NOT EXISTS state (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,20 +111,24 @@ func createDB(dbFile string) (*sql.DB, error) {
 			Name NOT NULL,
 			Description NOT NULL
 		);
+	CREATE TABLE IF NOT EXISTS pkgMappings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		PkgName TEST NOT NULL,
+		InstalledApp NOT NULL
+		);
 	COMMIT;
 		`
 
 	_, err = goodb.ExecContext(context.Background(), createDBQuery)
 	if err != nil {
-		fmt.Println("%v", err)
+		fmt.Printf("%v", err)
 	}
 
 	return goodb, nil
 }
 
-
 // WriteStateToDB writes new or partial state to the db.
- func (g *gooDB) WriteStateToDB(gooState *client.GooGetState) error {
+func (g *gooDB) WriteStateToDB(gooState *client.GooGetState) error {
 	for _, pkgState := range *gooState {
 		g.addPkg(pkgState)
 	}
@@ -120,11 +136,11 @@ func createDB(dbFile string) (*sql.DB, error) {
 }
 
 func (g *gooDB) addPkg(pkgState client.PackageState) {
-    spec := pkgState.PackageSpec
+	spec := pkgState.PackageSpec
 
-    tx, err := g.db.Begin()
-    if err != nil {
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+	tx, err := g.db.Begin()
+	if err != nil {
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	stmt, err := tx.PrepareContext(context.Background(), `
 	INSERT or REPLACE INTO state (PkgName, SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir) VALUES (
@@ -132,13 +148,13 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	defer stmt.Close()
 	_, err = stmt.ExecContext(context.Background(), spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir, spec.Name)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	stmt, err = tx.PrepareContext(context.Background(), `
 	INSERT or REPLACE INTO pkgspec (PkgName, Version, Arch, Description, License, Authors, Owners, Source, Replaces, Conflicts) VALUES (
@@ -146,32 +162,32 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-	_, err = stmt.ExecContext(context.Background(), spec.Name, spec.Version, spec.Arch, spec.Description, spec.License, 
-										   spec.Authors, spec.Owners, spec.Source, strings.Join(spec.Replaces, ","), strings.Join(spec.Conflicts, ","))
+	_, err = stmt.ExecContext(context.Background(), spec.Name, spec.Version, spec.Arch, spec.Description, spec.License,
+		spec.Authors, spec.Owners, spec.Source, strings.Join(spec.Replaces, ","), strings.Join(spec.Conflicts, ","))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-    stmt, err = tx.PrepareContext(context.Background(), `
+	stmt, err = tx.PrepareContext(context.Background(), `
 	INSERT or REPLACE INTO pkgInstallers (PkgName, ScriptType, Path, Args, ExitCodes) VALUES (
 		 ?, ?, ?, ?, ?) 
 	`)
 	_, err = stmt.ExecContext(context.Background(), spec.Name, "Install", spec.Install.Path, strings.Join(spec.Install.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Install.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	_, err = stmt.ExecContext(context.Background(), spec.Name, "Uninstall", spec.Uninstall.Path, strings.Join(spec.Uninstall.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Uninstall.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	stmt.ExecContext(context.Background(), spec.Name, "Verify", spec.Verify.Path, strings.Join(spec.Verify.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Verify.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 
 	stmt, err = tx.PrepareContext(context.Background(), `
@@ -180,13 +196,13 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	`)
 	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	for k, v := range spec.Files {
 		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
-			fmt.Println("Unable to update record %s: %v", spec.Name, err)
+			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 
@@ -194,35 +210,35 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	INSERT INTO pkgTags (PkgName, Name, Description) VALUES (
 		?, ?, ?, ?)
 	`)
-    if err != nil {
+	if err != nil {
 		tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	for k, v := range spec.Tags {
-		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
+		_, err = stmt.ExecContext(context.Background(), spec.Name, k, string(v))
 		if err != nil {
 			tx.Rollback()
-			fmt.Println("Unable to update record %s: %v", spec.Name, err)
+			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 	stmt, err = tx.PrepareContext(context.Background(), `
 	INSERT INTO pkgInsFiles (PkgName, Name, Hash) VALUES (
 		?, ?, ?)
 	`)
-    if err != nil {
-    	tx.Rollback()
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+	if err != nil {
+		tx.Rollback()
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 	for k, v := range pkgState.InstalledFiles {
 		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
-			fmt.Println("Unable to update record %s: %v", spec.Name, err)
+			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
-		fmt.Println("Unable to update record %s: %v", spec.Name, err)
+		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 }
 
@@ -240,7 +256,7 @@ func (g *gooDB) RemovePkg(packageName string) {
 
 	_, err := g.db.ExecContext(context.Background(), removeQuery)
 	if err != nil {
-		fmt.Println("%v", err)
+		fmt.Printf("%v", err)
 	}
 }
 
@@ -248,7 +264,7 @@ func (g *gooDB) RemovePkg(packageName string) {
 func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 	var pkgState client.PackageState
 	var pkgSpec goolib.PkgSpec
-	specquery := 		
+	specquery :=
 		`SELECT 
 			pkgspec.PkgName,
 			pkgspec.Version,
@@ -273,7 +289,7 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		`
 	spec, err := g.db.Query(specquery, pkgName)
 	if err != nil {
-		fmt.Println("%v", err)
+		fmt.Printf("%v", err)
 	}
 	for spec.Next() {
 		var replaces, conflicts string
@@ -295,15 +311,19 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 			&pkgState.UnpackDir,
 		)
 		if err != nil {
-			fmt.Println("%v", err)
+			fmt.Printf("%v", err)
 		}
-		pkgSpec.Replaces = strings.Split(replaces, " ")
-		pkgSpec.Conflicts = strings.Split(replaces, " ")
+		if replaces != "" {
+			pkgSpec.Replaces = strings.Split(replaces, ",")
+		}
+		if conflicts != "" {
+			pkgSpec.Conflicts = strings.Split(conflicts, ",")
+		}
 	}
 	installerQuery := `Select ScriptType, Path, Args, ExitCodes FROM pkgInstallers Where PkgName = ?`
 	ins, err := g.db.Query(installerQuery, pkgName)
 	if err != nil {
-		fmt.Println("%v", err)
+		fmt.Printf("%v", err)
 	}
 	for ins.Next() {
 		var sType, path, args, eCodes string
@@ -313,7 +333,9 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 			&args,
 			&eCodes,
 		)
-		
+		if path == "" {
+			continue
+		}
 		switch sType {
 		case "Install":
 			pkgSpec.Install.Path = path
@@ -325,10 +347,10 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 			pkgSpec.Uninstall.Path = path
 			pkgSpec.Uninstall.Args = strings.Split(args, ",")
 			if eCodes != "" {
-				pkgSpec.Uninstall.ExitCodes =  processExitCodes(eCodes)
+				pkgSpec.Uninstall.ExitCodes = processExitCodes(eCodes)
 			}
-	    case "Verify":
-	    	pkgSpec.Verify.Path = path
+		case "Verify":
+			pkgSpec.Verify.Path = path
 			pkgSpec.Verify.Args = strings.Split(args, ",")
 			if eCodes != "" {
 				pkgSpec.Verify.ExitCodes = processExitCodes(eCodes)
@@ -338,9 +360,9 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 
 	insFilesQuery := `Select Name, Hash FROM pkgInsFiles Where PkgName = ?`
 	insFiles, err := g.db.Query(insFilesQuery, pkgName)
-    if err != nil {
-			fmt.Println("%v", err)
-		}
+	if err != nil {
+		fmt.Printf("%v", err)
+	}
 	stateInsFiles := make(map[string]string)
 	for insFiles.Next() {
 		var name, hash string
@@ -350,13 +372,15 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		)
 		stateInsFiles[name] = hash
 	}
-	pkgState.InstalledFiles = stateInsFiles
+	if len(stateInsFiles) != 0 {
+		pkgState.InstalledFiles = stateInsFiles
+	}
 
 	filesQuery := `Select FileName, Path FROM pkgFiles Where PkgName = ?`
 	files, err := g.db.Query(filesQuery, pkgName)
-    if err != nil {
-			fmt.Println("%v", err)
-		}
+	if err != nil {
+		fmt.Printf("%v", err)
+	}
 	specFiles := make(map[string]string)
 	for files.Next() {
 		var name, path string
@@ -381,6 +405,20 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		specDeps[dep] = ver
 	}
 	pkgSpec.PkgDependencies = specDeps
+
+	tagsQuery := `Select Name, Description FROM pkgTags Where PkgName = ?`
+	tags, _ := g.db.Query(tagsQuery, pkgName)
+
+	specTags := make(map[string][]byte)
+	for tags.Next() {
+		var name, desc string
+		err = tags.Scan(
+			&name,
+			&desc,
+		)
+		specTags[name] = []byte(desc)
+	}
+	pkgSpec.Tags = specTags
 	pkgState.PackageSpec = &pkgSpec
 
 	return &pkgState
@@ -393,7 +431,7 @@ func (g *gooDB) FetchPkgs() *client.GooGetState {
 
 	pkgs, err := g.db.Query(`Select PkgName from pkgspec`)
 	if err != nil {
-	   fmt.Printf("%v", err)
+		fmt.Printf("%v", err)
 	}
 	defer pkgs.Close()
 	for pkgs.Next() {

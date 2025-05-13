@@ -22,8 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
 	"github.com/google/googet/v2/priority"
@@ -51,7 +51,7 @@ func (cmd *updateCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfa
 	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
-	} 
+	}
 	cache := filepath.Join(rootDir, cacheDir)
 	state := goodb.FetchPkgs()
 

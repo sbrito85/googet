@@ -4,15 +4,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
-	"encoding/json"
 
 	"github.com/google/googet/v2/db"
-	"github.com/google/subcommands"
 	"github.com/google/logger"
+	"github.com/google/subcommands"
 )
 
 type showCmd struct{}
@@ -30,7 +30,7 @@ func (cmd *showCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface
 	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
-	} 
+	}
 	var name string
 	switch f.NArg() {
 	case 0:
@@ -46,9 +46,9 @@ func (cmd *showCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface
 	}
 	pkg := goodb.FetchPkg(name)
 	marshaled, err := json.MarshalIndent(pkg, "", "  ")
-   if err != nil {
-      logger.Fatal("marshaling error: %s", err)
-   }
-   fmt.Println(string(marshaled))
+	if err != nil {
+		logger.Fatalf("marshaling error: %s", err)
+	}
+	fmt.Println(string(marshaled))
 	return subcommands.ExitSuccess
 }

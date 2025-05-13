@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/googet/v2/db"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/oswrap"
 	"github.com/google/logger"
@@ -59,7 +60,8 @@ func (cmd *cleanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 }
 
 func cleanPackages(pl []string) {
-	state, err := readState(filepath.Join(rootDir, stateFile))
+	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
+	state := goodb.FetchPkgs()
 	if err != nil {
 		logger.Fatal(err)
 	}

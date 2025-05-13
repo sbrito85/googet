@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
-	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/db"
+	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
@@ -55,7 +55,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 	goodb, err := db.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
-	} 
+	}
 	var state client.GooGetState
 	if len(flags.Args()) == 0 {
 		fmt.Printf("%s\nUsage: %s\n", cmd.Synopsis(), cmd.Usage())
@@ -102,7 +102,6 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 				exitCode = subcommands.ExitFailure
 				continue
 			}
-			fmt.Println("%v", insPkg)
 			if err := goodb.WriteStateToDB(&insPkg); err != nil {
 				logger.Fatalf("Error writing state database: %v", err)
 			}

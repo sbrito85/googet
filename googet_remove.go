@@ -20,8 +20,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"path/filepath"
 	"os"
+	"path/filepath"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/db"
@@ -56,9 +56,9 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
 		logger.Fatal(err)
-	} 
+	}
 	state := goodb.FetchPkgs()
-	var pDeps  map[string]string
+	var pDeps map[string]string
 	for _, arg := range flags.Args() {
 		pi := goolib.PkgNameSplit(arg)
 		var ins []string

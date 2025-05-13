@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/google/googet/v2/db"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -27,7 +28,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-    "github.com/google/googet/v2/db"
 
 	"github.com/go-yaml/yaml"
 	"github.com/google/googet/v2/client"
@@ -41,7 +41,7 @@ import (
 
 const (
 	stateFile = "googet.state"
-	dbFile =    "googet.db"
+	dbFile    = "googet.db"
 	confFile  = "googet.conf"
 	logFile   = "googet.log"
 	cacheDir  = "cache"
@@ -531,7 +531,7 @@ func main() {
 		goodb, err := db.NewDB(dbPath)
 		if err != nil {
 			logger.Fatal(err)
-		} 
+		}
 		//check to see if state file still exists, then convert and remove old state.
 		sf := filepath.Join(rootDir, stateFile)
 		state, err := readState(sf)
