@@ -29,6 +29,21 @@ import (
 	_ "modernc.org/sqlite" // Import the SQLite driver (unnamed)
 )
 
+const (
+	stateQuery = `INSERT or REPLACE INTO state (PkgName, SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir) VALUES (
+		?, ?, ?, ?, ?, ?)`
+	specQuery = `INSERT or REPLACE INTO pkgspec (PkgName, Version, Arch, Description, License, Authors, Owners, Source, Replaces, Conflicts) VALUES (
+		?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	installerQuery = `INSERT or REPLACE INTO pkgInstallers (PkgName, ScriptType, Path, Args, ExitCodes) VALUES (
+		 ?, ?, ?, ?, ?)`
+	filesQuery = `INSERT INTO pkgFiles (PkgName, FileName, Path) VALUES (
+		?, ?, ?)`
+	tagQuery = `INSERT INTO pkgTags (PkgName, Name, Description) VALUES (
+		?, ?, ?, ?)`
+	insFilesQuery = `INSERT INTO pkgInsFiles (PkgName, Name, Checksum) VALUES (
+		?, ?, ?)`
+)
+
 type gooDB struct {
 	db *sql.DB
 }
@@ -143,95 +158,54 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 	if err != nil {
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-	stmt, err := tx.PrepareContext(context.Background(), `
-	INSERT or REPLACE INTO state (PkgName, SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir) VALUES (
-		?, ?, ?, ?, ?, ?)
-	`)
+
+	_, err = tx.ExecContext(context.Background(), stateQuery, spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir)
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(context.Background(), spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir)
-	if err != nil {
-		tx.Rollback()
-		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
-	}
-	stmt, err = tx.PrepareContext(context.Background(), `
-	INSERT or REPLACE INTO pkgspec (PkgName, Version, Arch, Description, License, Authors, Owners, Source, Replaces, Conflicts) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		tx.Rollback()
-		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
-	}
-	_, err = stmt.ExecContext(context.Background(), spec.Name, spec.Version, spec.Arch, spec.Description, spec.License,
+
+	_, err = tx.ExecContext(context.Background(), specQuery, spec.Name, spec.Version, spec.Arch, spec.Description, spec.License,
 		spec.Authors, spec.Owners, spec.Source, strings.Join(spec.Replaces, ","), strings.Join(spec.Conflicts, ","))
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-	stmt, err = tx.PrepareContext(context.Background(), `
-	INSERT or REPLACE INTO pkgInstallers (PkgName, ScriptType, Path, Args, ExitCodes) VALUES (
-		 ?, ?, ?, ?, ?) 
-	`)
-	_, err = stmt.ExecContext(context.Background(), spec.Name, "Install", spec.Install.Path, strings.Join(spec.Install.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Install.ExitCodes)), ","), "[]"))
+
+	_, err = tx.ExecContext(context.Background(), installerQuery, spec.Name, "Install", spec.Install.Path, strings.Join(spec.Install.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Install.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-	_, err = stmt.ExecContext(context.Background(), spec.Name, "Uninstall", spec.Uninstall.Path, strings.Join(spec.Uninstall.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Uninstall.ExitCodes)), ","), "[]"))
+	_, err = tx.ExecContext(context.Background(), installerQuery, spec.Name, "Uninstall", spec.Uninstall.Path, strings.Join(spec.Uninstall.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Uninstall.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
-	stmt.ExecContext(context.Background(), spec.Name, "Verify", spec.Verify.Path, strings.Join(spec.Verify.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Verify.ExitCodes)), ","), "[]"))
+	_, err = tx.ExecContext(context.Background(), installerQuery, spec.Name, "Verify", spec.Verify.Path, strings.Join(spec.Verify.Args, ","), strings.Trim(strings.Join(strings.Fields(fmt.Sprint(spec.Verify.ExitCodes)), ","), "[]"))
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 
-	stmt, err = tx.PrepareContext(context.Background(), `
-	INSERT INTO pkgFiles (PkgName, FileName, Path) VALUES (
-		?, ?, ?)
-	`)
-	if err != nil {
-		tx.Rollback()
-		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
-	}
 	for k, v := range spec.Files {
-		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
+		_, err = tx.ExecContext(context.Background(), filesQuery, spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
 			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
 
-	stmt, err = tx.PrepareContext(context.Background(), `
-	INSERT INTO pkgTags (PkgName, Name, Description) VALUES (
-		?, ?, ?, ?)
-	`)
-	if err != nil {
-		tx.Rollback()
-		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
-	}
 	for k, v := range spec.Tags {
-		_, err = stmt.ExecContext(context.Background(), spec.Name, k, string(v))
+		_, err = tx.ExecContext(context.Background(), tagQuery, spec.Name, k, string(v))
 		if err != nil {
 			tx.Rollback()
 			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
-	stmt, err = tx.PrepareContext(context.Background(), `
-	INSERT INTO pkgInsFiles (PkgName, Name, Checksum) VALUES (
-		?, ?, ?)
-	`)
-	if err != nil {
-		tx.Rollback()
-		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
-	}
+
 	for k, v := range pkgState.InstalledFiles {
-		_, err = stmt.ExecContext(context.Background(), spec.Name, k, v)
+		_, err = tx.ExecContext(context.Background(), insFilesQuery, spec.Name, k, v)
 		if err != nil {
 			tx.Rollback()
 			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
@@ -265,7 +239,7 @@ func (g *gooDB) RemovePkg(packageName string) {
 func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 	var pkgState client.PackageState
 	var pkgSpec goolib.PkgSpec
-	specquery :=
+	selectSpecQuery :=
 		`SELECT 
 			pkgspec.PkgName,
 			pkgspec.Version,
@@ -288,7 +262,7 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		WHERE pkgspec.PkgName = ?
 		ORDER BY pkgspec.PkgName
 		`
-	spec, err := g.db.Query(specquery, pkgName)
+	spec, err := g.db.Query(selectSpecQuery, pkgName)
 	if err != nil {
 		fmt.Printf("%v", err)
 	}
@@ -321,8 +295,8 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 			pkgSpec.Conflicts = strings.Split(conflicts, ",")
 		}
 	}
-	installerQuery := `Select ScriptType, Path, Args, ExitCodes FROM pkgInstallers Where PkgName = ?`
-	ins, err := g.db.Query(installerQuery, pkgName)
+	selectInstallerQuery := `Select ScriptType, Path, Args, ExitCodes FROM pkgInstallers Where PkgName = ?`
+	ins, err := g.db.Query(selectInstallerQuery, pkgName)
 	if err != nil {
 		fmt.Printf("%v", err)
 	}
@@ -359,8 +333,8 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		}
 	}
 
-	insFilesQuery := `Select Name, Checksum FROM pkgInsFiles Where PkgName = ?`
-	insFiles, err := g.db.Query(insFilesQuery, pkgName)
+	selectInsFilesQuery := `Select Name, Checksum FROM pkgInsFiles Where PkgName = ?`
+	insFiles, err := g.db.Query(selectInsFilesQuery, pkgName)
 	if err != nil {
 		fmt.Printf("%v", err)
 	}
@@ -377,8 +351,8 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		pkgState.InstalledFiles = stateInsFiles
 	}
 
-	filesQuery := `Select FileName, Path FROM pkgFiles Where PkgName = ?`
-	files, err := g.db.Query(filesQuery, pkgName)
+	selectFilesQuery := `Select FileName, Path FROM pkgFiles Where PkgName = ?`
+	files, err := g.db.Query(selectFilesQuery, pkgName)
 	if err != nil {
 		fmt.Printf("%v", err)
 	}
@@ -393,8 +367,8 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 	}
 	pkgSpec.Files = specFiles
 
-	depsQuery := `Select Dependency, Version FROM pkgDeps Where PkgName = ?`
-	deps, _ := g.db.Query(depsQuery, pkgName)
+	selectDepsQuery := `Select Dependency, Version FROM pkgDeps Where PkgName = ?`
+	deps, _ := g.db.Query(selectDepsQuery, pkgName)
 
 	specDeps := make(map[string]string)
 	for deps.Next() {
@@ -407,8 +381,8 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 	}
 	pkgSpec.PkgDependencies = specDeps
 
-	tagsQuery := `Select Name, Description FROM pkgTags Where PkgName = ?`
-	tags, _ := g.db.Query(tagsQuery, pkgName)
+	selectTagsQuery := `Select Name, Description FROM pkgTags Where PkgName = ?`
+	tags, _ := g.db.Query(selectTagsQuery, pkgName)
 
 	specTags := make(map[string][]byte)
 	for tags.Next() {
