@@ -529,7 +529,7 @@ func main() {
 		fmt.Println("Creating Googet DB and converting State file...")
 		goodb, err := db.NewDB(dbPath)
 		if err != nil {
-			logger.Fatal(err)
+			logger.Fatalf("Unable to create initial db file. If db is not created, run again as admin: %v", err)
 		}
 		//check to see if state file still exists, then convert and remove old state.
 		sf := filepath.Join(rootDir, stateFile)
@@ -538,6 +538,10 @@ func main() {
 			logger.Fatal(err)
 		}
 		goodb.WriteStateToDB(state)
+	}
+	// Allow installed to run through sql db creation
+	if flag.Args()[0] == "installed" {
+		os.Exit(int(cmdr.Execute(context.Background())))
 	}
 	lockFile = filepath.Join(rootDir, "googet.lock")
 	if err := obtainLock(lockFile); err != nil {
@@ -566,7 +570,6 @@ func main() {
 		runDeferredFuncs()
 		logger.Fatalf("Error setting up repo directory: %v", err)
 	}
-	fmt.Printf("%v", cmdr.Name())
 	es := cmdr.Execute(context.Background())
 	runDeferredFuncs()
 	os.Exit(int(es))

@@ -15,6 +15,7 @@
     "path": "install.ps1"
   },
   "releaseNotes": [
+    "3.0.1  - Add installed json output, populate pkgmapping table and rework auto-uninstall logic.",
     "3.0.0  - Replace googet state file with sqlite database.",
     "2.21.0 - Add arm64 arch support.",
     "2.20.0 - Add installdate metadata to registry key for consumption by external tools.",

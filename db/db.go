@@ -20,18 +20,21 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
+	"github.com/google/googet/v2/system"
 
 	_ "modernc.org/sqlite" // Import the SQLite driver (unnamed)
 )
 
 const (
-	stateQuery = `INSERT or REPLACE INTO state (PkgName, SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir) VALUES (
-		?, ?, ?, ?, ?, ?)`
+	stateQuery = `INSERT or REPLACE INTO state (PkgName, SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir, InstallTime) VALUES (
+		?, ?, ?, ?, ?, ?, ?)`
 	specQuery = `INSERT or REPLACE INTO pkgspec (PkgName, Version, Arch, Description, License, Authors, Owners, Source, Replaces, Conflicts) VALUES (
 		?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	installerQuery = `INSERT or REPLACE INTO pkgInstallers (PkgName, ScriptType, Path, Args, ExitCodes) VALUES (
@@ -41,6 +44,8 @@ const (
 	tagQuery = `INSERT INTO pkgTags (PkgName, Name, Description) VALUES (
 		?, ?, ?, ?)`
 	insFilesQuery = `INSERT INTO pkgInsFiles (PkgName, Name, Checksum) VALUES (
+		?, ?, ?)`
+	pkgMapQuery = `INSERT INTO pkgMappings (PkgName, InstalledApp, InstalledAppReg) VALUES (
 		?, ?, ?)`
 )
 
@@ -53,7 +58,10 @@ func NewDB(dbFile string) (*gooDB, error) {
 	var gdb gooDB
 	var err error
 	if _, err := os.Stat(dbFile); errors.Is(err, os.ErrNotExist) {
-		gdb.db, _ = createDB(dbFile)
+		gdb.db, err = createDB(dbFile)
+		if err != nil {
+			return nil, err
+		}
 		return &gdb, nil
 	}
 	gdb.db, err = sql.Open("sqlite", dbFile)
@@ -78,7 +86,8 @@ func createDB(dbFile string) (*sql.DB, error) {
 			DownloadURL TEXT NOT NULL,
 			Checksum TEXT,
 			LocalPath TEXT,
-			UnpackDir TEXT
+			UnpackDir TEXT,
+			InstallTime INTEGER
 		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgspec (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,15 +137,15 @@ func createDB(dbFile string) (*sql.DB, error) {
 		) STRICT;
 	CREATE TABLE IF NOT EXISTS pkgMappings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		PkgName TEXT NOT NULL,
-		InstalledApp TEXT NOT NULL
+		PkgName TEXT NOT NULL UNIQUE,
+		InstalledApp TEXT NOT NULL,
+		InstalledAppReg TEXT NOT NULL
 		) STRICT;
 	COMMIT;
 		`
 
 	_, err = db.ExecContext(context.Background(), createDBQuery)
 	if err != nil {
-		fmt.Printf("%v", err)
 		return nil, err
 	}
 
@@ -159,7 +168,7 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 	}
 
-	_, err = tx.ExecContext(context.Background(), stateQuery, spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir)
+	_, err = tx.ExecContext(context.Background(), stateQuery, spec.Name, pkgState.SourceRepo, pkgState.DownloadURL, pkgState.Checksum, pkgState.LocalPath, pkgState.UnpackDir, time.Now().UTC().Unix())
 	if err != nil {
 		tx.Rollback()
 		fmt.Printf("Unable to update record %s: %v", spec.Name, err)
@@ -203,7 +212,14 @@ func (g *gooDB) addPkg(pkgState client.PackageState) {
 			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
 		}
 	}
-
+	if len(pkgState.InstalledFiles) == 0 {
+		installedApp, installedAppReg := system.AppAssociation(spec.Authors, pkgState.LocalPath, spec.Name, filepath.Ext(spec.Install.Path))
+		_, err = tx.ExecContext(context.Background(), pkgMapQuery, spec.Name, installedApp, installedAppReg)
+		if err != nil {
+			tx.Rollback()
+			fmt.Printf("Unable to update record %s: %v", spec.Name, err)
+		}
+	}
 	for k, v := range pkgState.InstalledFiles {
 		_, err = tx.ExecContext(context.Background(), insFilesQuery, spec.Name, k, v)
 		if err != nil {
@@ -223,10 +239,11 @@ func (g *gooDB) RemovePkg(packageName string) {
 	DELETE FROM state where PkgName = '%[1]v';
 	DELETE FROM pkgspec where PkgName = '%[1]v';
 	DELETE FROM pkgInstallers where PkgName = '%[1]v';
-	DELETE FROM pkgInstallers where PkgName = '%[1]v';
 	DELETE FROM pkgDeps where PkgName = '%[1]v';
+	DELETE FROM pkgFiles where PkgName = '%[1]v';
 	DELETE FROM pkgInsFiles where PkgName = '%[1]v';
 	DELETE FROM pkgTags where PkgName = '%[1]v';
+	DELETE FROM pkgMappings where PkgName = '%[1]v';
 	COMMIT;`, packageName)
 
 	_, err := g.db.ExecContext(context.Background(), removeQuery)
@@ -238,6 +255,7 @@ func (g *gooDB) RemovePkg(packageName string) {
 // FetchPkg exports a sinfle package from the googet database
 func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 	var pkgState client.PackageState
+	var pkgMap client.InstalledApplication
 	var pkgSpec goolib.PkgSpec
 	selectSpecQuery :=
 		`SELECT 
@@ -255,10 +273,14 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 			state.DownloadURL,
 			state.Checksum,
 			state.LocalPath,
-			state.UnpackDir
+			state.UnpackDir,
+			state.InstallTime,
+			IFNULL(pkgMappings.InstalledApp, ""),
+			IFNULL(pkgMappings.InstalledAppReg, "")
 		FROM
 			pkgspec
 			LEFT JOIN state ON state.PkgName = pkgspec.PkgName
+			LEFT JOIN pkgMappings ON pkgMappings.PkgName = pkgspec.PkgName
 		WHERE pkgspec.PkgName = ?
 		ORDER BY pkgspec.PkgName
 		`
@@ -284,6 +306,9 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 			&pkgState.Checksum,
 			&pkgState.LocalPath,
 			&pkgState.UnpackDir,
+			&pkgState.InstallDate,
+			&pkgMap.Name,
+			&pkgMap.Reg,
 		)
 		if err != nil {
 			fmt.Printf("%v", err)
@@ -294,6 +319,7 @@ func (g *gooDB) FetchPkg(pkgName string) *client.PackageState {
 		if conflicts != "" {
 			pkgSpec.Conflicts = strings.Split(conflicts, ",")
 		}
+		pkgState.InstalledApp = pkgMap
 	}
 	selectInstallerQuery := `Select ScriptType, Path, Args, ExitCodes FROM pkgInstallers Where PkgName = ?`
 	ins, err := g.db.Query(selectInstallerQuery, pkgName)
@@ -412,6 +438,9 @@ func (g *gooDB) FetchPkgs() *client.GooGetState {
 	for pkgs.Next() {
 		var pkgName string
 		err = pkgs.Scan(&pkgName)
+		if err != nil {
+			fmt.Printf("%v", err)
+		}
 		state = append(state, *g.FetchPkg(pkgName))
 	}
 
