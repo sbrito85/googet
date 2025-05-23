@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
 	"github.com/google/googet/v2/priority"
@@ -47,14 +48,18 @@ func (cmd *updateCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (cmd *updateCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	cache := filepath.Join(rootDir, cacheDir)
-	sf := filepath.Join(rootDir, stateFile)
-	state, err := readState(sf)
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
 	}
+	defer db.Close()
+	cache := filepath.Join(rootDir, cacheDir)
+	state, err := db.FetchPkgs()
+	if err != nil {
+		logger.Fatalf("Unable to fetch installed packges: %v", err)
+	}
 
-	pm := installedPackages(*state)
+	pm := installedPackages(state)
 	if len(pm) == 0 {
 		fmt.Println("No packages installed.")
 		return subcommands.ExitSuccess
@@ -93,15 +98,15 @@ func (cmd *updateCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfa
 		if err != nil {
 			logger.Errorf("Error finding repo: %v.", err)
 		}
-		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, state, cmd.dbOnly, downloader); err != nil {
+		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &state, cmd.dbOnly, downloader); err != nil {
 			logger.Errorf("Error updating %s %s %s: %v", pi.Arch, pi.Name, pi.Ver, err)
 			exitCode = subcommands.ExitFailure
 			continue
 		}
 	}
 
-	if err := writeState(state, sf); err != nil {
-		logger.Fatalf("Error writing state file: %v", err)
+	if err := db.WriteStateToDB(state); err != nil {
+		logger.Fatalf("Error writing state db: %v", err)
 	}
 
 	return exitCode

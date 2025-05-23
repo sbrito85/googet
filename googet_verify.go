@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
 	"github.com/google/googet/v2/verify"
@@ -53,12 +54,12 @@ func (cmd *verifyCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 	}
 	exitCode := subcommands.ExitSuccess
 
-	sf := filepath.Join(rootDir, stateFile)
-	state, err := readState(sf)
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
-		logger.Error(err)
+		logger.Fatal(err)
 	}
-
+	defer db.Close()
+	state, err := db.FetchPkgs()
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
 		logger.Fatal(err)
@@ -75,7 +76,7 @@ func (cmd *verifyCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 
 		// Check for multiples.
 		var ins []string
-		for _, p := range *state {
+		for _, p := range state {
 			if p.Match(pi) {
 				ins = append(ins, p.PackageSpec.Name+"."+p.PackageSpec.Arch)
 			}
@@ -105,7 +106,7 @@ func (cmd *verifyCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 			msg := fmt.Sprintf("Verification failed for %s, reinstalling...", pkg)
 			logger.Info(msg)
 			fmt.Println(msg)
-			if err := install.Reinstall(ctx, ps, *state, false, downloader); err != nil {
+			if err := install.Reinstall(ctx, ps, false, downloader); err != nil {
 				logger.Errorf("Error reinstalling %s, %v", pi.Name, err)
 			}
 		} else if !v {

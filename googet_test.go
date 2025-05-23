@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/oswrap"
 	"github.com/google/googet/v2/priority"
@@ -204,150 +205,6 @@ func TestRotateLog(t *testing.T) {
 	}
 }
 
-func TestWriteReadState(t *testing.T) {
-	want := &client.GooGetState{
-		client.PackageState{PackageSpec: &goolib.PkgSpec{Name: "test"}},
-	}
-
-	tempDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("error creating temp directory: %v", err)
-	}
-	defer oswrap.RemoveAll(tempDir)
-
-	sf := filepath.Join(tempDir, "test.state")
-
-	if err := writeState(want, sf); err != nil {
-		t.Errorf("error running writeState: %v", err)
-	}
-
-	got, err := readState(sf)
-	if err != nil {
-		t.Errorf("error running readState: %v", err)
-	}
-
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("did not get expected state, got: %+v, want %+v", got, want)
-	}
-}
-
-func TestReadStateRecovery(t *testing.T) {
-	original := &client.GooGetState{
-		client.PackageState{PackageSpec: &goolib.PkgSpec{Name: "test.org"}},
-	}
-
-	overwrite := &client.GooGetState{
-		client.PackageState{PackageSpec: &goolib.PkgSpec{Name: "test.new"}},
-	}
-
-	tempDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("error creating temp directory: %v", err)
-	}
-	defer oswrap.RemoveAll(tempDir)
-
-	const (
-		deleteState int = iota
-		corruptState
-	)
-
-	table := []struct {
-		name       string
-		disruption int
-	}{
-		{"test-deleted.state", deleteState},
-		{"test-corrupted.state", corruptState},
-	}
-
-	for _, tt := range table {
-		sf := filepath.Join(tempDir, tt.name)
-
-		if err := writeState(original, sf); err != nil {
-			t.Errorf("error running writeState: %v", err)
-		}
-
-		if err := writeState(overwrite, sf); err != nil {
-			t.Errorf("error running writeState second time: %v", err)
-		}
-
-		got, err := readState(sf)
-		if err != nil {
-			t.Errorf("error running readState: %v", err)
-		}
-
-		if !reflect.DeepEqual(got, overwrite) {
-			t.Errorf("did not get expected state after overwrite, got: %+v, want %+v", got, overwrite)
-		}
-
-		switch tt.disruption {
-		case deleteState:
-			if err := oswrap.Remove(sf); err != nil {
-				t.Errorf("error deleting state: %v", err)
-			}
-		case corruptState:
-			if err := ioutil.WriteFile(sf, []byte{0, 0, 0, 0}, 0664); err != nil {
-				t.Errorf("error corrupting state: %v", err)
-			}
-		}
-
-		got, err = readState(sf)
-		if err != nil {
-			t.Errorf("error running readState after corruption of active state: %v", err)
-		}
-
-		if !reflect.DeepEqual(got, original) {
-			t.Errorf("did not get expected state after corruption, got: %+v, want %+v", got, original)
-		}
-	}
-}
-
-func TestCleanOld(t *testing.T) {
-	var err error
-	rootDir, err = ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("error creating temp directory: %v", err)
-	}
-	defer oswrap.RemoveAll(rootDir)
-
-	wantFile := filepath.Join(rootDir, cacheDir, "want.goo")
-	notWantDir := filepath.Join(rootDir, cacheDir, "notWant")
-	notWantFile := filepath.Join(rootDir, cacheDir, "notWant.goo")
-
-	if err := oswrap.MkdirAll(notWantDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(notWantFile, nil, 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(wantFile, nil, 0700); err != nil {
-		t.Fatal(err)
-	}
-
-	state := &client.GooGetState{
-		{
-			LocalPath: wantFile,
-		},
-	}
-
-	if err := writeState(state, filepath.Join(rootDir, stateFile)); err != nil {
-		t.Fatalf("error running writeState: %v", err)
-	}
-
-	cleanOld()
-
-	if _, err := oswrap.Stat(wantFile); err != nil {
-		t.Errorf("cleanOld removed wantDir, Stat err: %v", err)
-	}
-
-	if _, err := oswrap.Stat(notWantDir); err == nil {
-		t.Errorf("cleanOld did not remove notWantDir")
-	}
-
-	if _, err := oswrap.Stat(notWantFile); err == nil {
-		t.Errorf("cleanOld did not remove notWantFile")
-	}
-}
-
 func TestCleanPackages(t *testing.T) {
 	var err error
 	rootDir, err = ioutil.TempDir("", "")
@@ -369,7 +226,7 @@ func TestCleanPackages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	state := &client.GooGetState{
+	state := client.GooGetState{
 		{
 			LocalPath: wantFile,
 			PackageSpec: &goolib.PkgSpec{
@@ -384,9 +241,11 @@ func TestCleanPackages(t *testing.T) {
 		},
 	}
 
-	if err := writeState(state, filepath.Join(rootDir, stateFile)); err != nil {
-		t.Fatalf("error running writeState: %v", err)
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
+	if err != nil {
+		t.Fatal(err)
 	}
+	db.WriteStateToDB(state)
 
 	cleanPackages([]string{"notWant"})
 

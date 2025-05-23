@@ -18,22 +18,24 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
 )
 
 type installedCmd struct {
-	info  bool
-	files bool
+	info   bool
+	files  bool
+	format string
 }
 
 func (*installedCmd) Name() string     { return "installed" }
@@ -48,74 +50,105 @@ func (*installedCmd) Usage() string {
 func (cmd *installedCmd) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&cmd.info, "info", false, "display package info")
 	f.BoolVar(&cmd.files, "files", false, "display package file list")
+	f.StringVar(&cmd.format, "format", "simple", "Formatting of the output. Supported outputs: simple, json")
 }
 
 func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	var filter string
+	var state client.GooGetState
+	var exitCode subcommands.ExitStatus
+	var displayText string
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer db.Close()
 	switch f.NArg() {
 	case 0:
-		filter = ""
+		state, err = db.FetchPkgs()
+		if err != nil {
+			logger.Fatalf("Unable to fetch installed packges: %v", err)
+		}
+		displayText = "Installed packages:\n"
 	case 1:
-		filter = f.Arg(0)
+		pkg, err := db.FetchPkg(f.Arg(0))
+		if err != nil {
+			logger.Fatalf("Unable to fetch installed packges: %v", err)
+		}
+		if pkg.PackageSpec != nil {
+			state = append(state, pkg)
+		}
+		displayText = fmt.Sprintf("Installed packages matching %q:\n", f.Arg(0))
+		if len(state) == 0 {
+			displayText = fmt.Sprintf("No package matching filter %q installed.\n", f.Arg(0))
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "Excessive arguments")
 		f.Usage()
 		return subcommands.ExitUsageError
 	}
 
-	state, err := readState(filepath.Join(rootDir, stateFile))
-	if err != nil {
-		logger.Fatal(err)
+	switch cmd.format {
+	case "simple":
+		exitCode = cmd.formatSimple(state, displayText)
+	case "json":
+		exitCode = cmd.formatJson(state)
+	default:
+		fmt.Fprintln(os.Stderr, "Invalid format")
+		f.Usage()
+		return subcommands.ExitUsageError
 	}
+	return exitCode
+}
 
-	pm := installedPackages(*state)
-	if len(pm) == 0 {
-		fmt.Println("No packages installed.")
-		return subcommands.ExitSuccess
-	}
-
+func (cmd *installedCmd) formatSimple(state client.GooGetState, displayText string) subcommands.ExitStatus {
+	pm := installedPackages(state)
 	var pl []string
 	for p, v := range pm {
 		pl = append(pl, p+"."+v)
 	}
 
 	sort.Strings(pl)
-	if filter != "" {
-		fmt.Printf("Installed packages matching %q:\n", filter)
-	} else {
-		fmt.Println("Installed packages:")
-	}
+	fmt.Printf(displayText)
+
 	exitCode := subcommands.ExitFailure
 	for _, p := range pl {
-		if strings.Contains(p, filter) {
-			exitCode = subcommands.ExitSuccess
-			pi := goolib.PkgNameSplit(p)
+		exitCode = subcommands.ExitSuccess
+		pi := goolib.PkgNameSplit(p)
 
-			if cmd.info {
-				local(pi, *state)
+		if cmd.info {
+			local(pi, state)
+			continue
+		}
+		fmt.Println(" ", pi.Name+"."+pi.Arch+" "+pi.Ver)
+
+		if cmd.files {
+			ps, err := state.GetPackageState(pi)
+			if err != nil {
+				logger.Errorf("Unable to get file list for package %q.", p)
 				continue
 			}
-			fmt.Println(" ", pi.Name+"."+pi.Arch+" "+pi.Ver)
-
-			if cmd.files {
-				ps, err := state.GetPackageState(pi)
-				if err != nil {
-					logger.Errorf("Unable to get file list for package %q.", p)
-					continue
-				}
-				if len(ps.InstalledFiles) == 0 {
-					fmt.Println("  - No files directly managed by GooGet.")
-				}
-				for file := range ps.InstalledFiles {
-					fmt.Println("  -", file)
-				}
+			if len(ps.InstalledFiles) == 0 {
+				fmt.Println("  - No files directly managed by GooGet.")
+			}
+			for file := range ps.InstalledFiles {
+				fmt.Println("  -", file)
 			}
 		}
 	}
-	if exitCode != subcommands.ExitSuccess {
-		fmt.Fprintf(os.Stderr, "No package matching filter %q installed.\n", filter)
-	}
 	return exitCode
+}
+
+func (cmd *installedCmd) formatJson(state client.GooGetState) subcommands.ExitStatus {
+	marshaled, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		logger.Fatalf("marshaling error: %s", err)
+	}
+	if string(marshaled) != "null" {
+		fmt.Println(string(marshaled))
+		return subcommands.ExitSuccess
+	}
+	fmt.Println("{}")
+	return subcommands.ExitSuccess
 }
 
 func local(pi goolib.PackageInfo, state client.GooGetState) {

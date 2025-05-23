@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/oswrap"
 	"github.com/google/logger"
@@ -59,12 +60,17 @@ func (cmd *cleanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 }
 
 func cleanPackages(pl []string) {
-	state, err := readState(filepath.Join(rootDir, stateFile))
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer db.Close()
+	state, err := db.FetchPkgs()
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	for _, pkg := range *state {
+	for _, pkg := range state {
 		if goolib.ContainsString(pkg.PackageSpec.Name, pl) {
 			if err := oswrap.RemoveAll(pkg.LocalPath); err != nil {
 				logger.Error(err)
@@ -94,7 +100,7 @@ func cleanOld() {
 	}
 
 	var il []string
-	for _, pkg := range *state {
+	for _, pkg := range state {
 		il = append(il, pkg.LocalPath)
 	}
 	clean(il)

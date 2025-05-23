@@ -39,11 +39,20 @@ import (
 	"google.golang.org/api/googleapi"
 )
 
+type InstalledApplication struct {
+	// Display Name of the installed application found in the registry
+	Name string
+	// Registry key of the installed application in uninstall
+	Reg string
+}
+
 // PackageState describes the state of a package on a client.
 type PackageState struct {
 	SourceRepo, DownloadURL, Checksum, LocalPath, UnpackDir string
 	PackageSpec                                             *goolib.PkgSpec
 	InstalledFiles                                          map[string]string
+	InstallDate                                             int64
+	InstalledApp                                            InstalledApplication
 }
 
 // GooGetState describes the overall package state on a client.

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/oswrap"
 	"github.com/google/logger"
@@ -36,7 +37,50 @@ import (
 
 const uninstallBase = `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`
 
-var msiSuccessCodes = []int{1641, 3010}
+// Regex taken from Winget uninstaller
+// https://github.com/microsoft/winget-cli/blob/6ea13623e5e4b870b81efeea9142d15a98dd4208/src/AppInstallerCommonCore/NameNormalization.cpp#L262
+var (
+	programNameReg = []string{
+		"PrefixParens",
+		"EmptyParens",
+		"Version",
+		"TrailingSymbols",
+		"LeadingSymbols",
+		"FilePathParens",
+		"FilePathQuotes",
+		"FilePath",
+		"VersionLetter",
+		"VersionLetterDelimited",
+		"En",
+		"NonNestedBracket",
+		"BracketEnclosed",
+		"URIProtocol",
+	}
+	publisherNameReg = []string{
+		"VersionDelimited",
+		"Version",
+		"NonNestedBracket",
+		"BracketEnclosed",
+		"URIProtocol",
+	}
+	regex = map[string]string{
+		"PrefixParens":           `(^\(.*?\))`,
+		"EmptyParens":            `((\(\s*\)|\[\s*\]|"\s*"))`,
+		"Version":                `(?:^)|(?:P|V|R|VER|VERSI(?:O|Ó)N|VERSÃO|VERSIE|WERSJA|BUILD|RELEASE|RC|SP)(?:\P{L}|\P{L}\p{L})?(\p{Nd}|\.\p{Nd})+(?:RC|B|A|R|V|SP)?\p{Nd}?`,
+		"TrailingSymbols":        `([^\p{L}\p{Nd}]+$)`,
+		"LeadingSymbols":         `(^[^\p{L}\p{Nd}]+)`,
+		"FilePathParens":         `(\([CDEF]:\\(.+?\\)*[^\s]*\\?\))`,
+		"FilePathQuotes":         `("[CDEF]:\\(.+?\\)*[^\s]*\\?")`,
+		"FilePath":               `(((INSTALLED\sAT|IN)\s)?[CDEF]:\\(.+?\\)*[^\s]*\\?)`,
+		"VersionLetter":          `((?:^\p{L})(?:(?:V|VER|VERSI(?:O|Ó)N|VERSÃO|VERSIE|WERSJA|BUILD|RELEASE|RC|SP)\P{L})?\p{Lu}\p{Nd}+(?:[\p{Po}\p{Pd}\p{Pc}]\p{Nd}+)+)`,
+		"VersionLetterDelimited": `((?:^\p{L})(?:(?:V|VER|VERSI(?:O|Ó)N|VERSÃO|VERSIE|WERSJA|BUILD|RELEASE|RC|SP)\P{L})?\p{Lu}\p{Nd}+(?:[\p{Po}\p{Pd}\p{Pc}]\p{Nd}+)+)`,
+		"En":                     `(\sEN\s*$)`,
+		"NonNestedBracket":       `(\([^\(\)]*\)|\[[^\[\]]*\])`,
+		"BracketEnclosed":        `((?:\p{Ps}.*\p{Pe}|".*"))`,
+		"URIProtocol":            `((?:^\p{L})(?:http[s]?|ftp):\/\/)`,
+	}
+	msiSuccessCodes = []int{1641, 3010}
+)
 
 func addUninstallEntry(dir string, ps *goolib.PkgSpec) error {
 	reg := uninstallBase + "GooGet - " + ps.Name
@@ -72,67 +116,121 @@ func removeUninstallEntry(name string) error {
 	return registry.DeleteKey(registry.LOCAL_MACHINE, reg)
 }
 
-func uninstallString(publisher, installSource, programName, extension string) string {
-	productroot := `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, productroot, registry.ENUMERATE_SUB_KEYS)
-	if err != nil {
-		return ""
+func AppAssociation(publisher, installSource, programName, extension string) (string, string) {
+
+	var productroots = []string{
+		`SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`,
+		`SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\`,
 	}
-	reg, _ := k.ReadSubKeyNames(-1)
-	defer k.Close()
-	for _, v := range reg {
-		q, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("%s%s", productroot, v), registry.ALL_ACCESS)
-		defer q.Close()
+	for _, productroot := range productroots {
+		k, err := registry.OpenKey(registry.LOCAL_MACHINE, productroot, registry.ENUMERATE_SUB_KEYS)
 		if err != nil {
-			continue
+			return "", ""
 		}
-		switch extension {
-		case "msi":
-			a, _, err := q.GetStringValue("InstallSource")
+		defer k.Close()
+		reg, err := k.ReadSubKeyNames(-1)
+		if err != nil {
+			return "", ""
+		}
+		for _, v := range reg {
+			productReg := fmt.Sprintf("%s%s", productroot, v)
+			q, err := registry.OpenKey(registry.LOCAL_MACHINE, productReg, registry.ALL_ACCESS)
 			if err != nil {
-				// InstallSource not found, move on to next entry
 				continue
 			}
-			if strings.Contains(a, installSource) {
-				un, _, err := q.GetStringValue("UninstallString")
+			defer q.Close()
+			displayName, _, err := q.GetStringValue("DisplayName")
+			if err != nil {
+				continue
+			}
+
+			switch extension {
+			case ".msi":
+				a, _, err := q.GetStringValue("InstallSource")
 				if err != nil {
-					// UninstallString not found, move on to next entry
+					// InstallSource not found, move on to next entry
 					continue
 				}
-				return un
-			}
-		default:
-			for _, v := range publisherNameReg {
-				re := regexp.MustCompile("(?i)" + regex[v])
-				publisher = re.ReplaceAllString(publisher, "")
-			}
-			for _, v := range programNameReg {
-				re := regexp.MustCompile("(?i)" + regex[v])
-				programName = re.ReplaceAllString(programName, "")
-			}
-			publisherReg, _, err := q.GetStringValue("Publisher")
-			if err != nil {
-				continue
-			}
-			// Remove display name whitespace to conform to package name
-			if strings.ToLower(publisherReg) == strings.ToLower(publisher) {
-				displayName, _, _ := q.GetStringValue("DisplayName")
+				iS := strings.Split(installSource, "@")
+				if strings.Contains(a, iS[0]) {
+					name, _, err := q.GetStringValue("DisplayName")
+					if err != nil {
+						// UninstallString not found, move on to next entry
+						continue
+					}
+					return name, productReg
+				}
+			default:
+				// TODO: Look into precompiling regex
+				for _, v := range publisherNameReg {
+					re := regexp.MustCompile("(?i)" + regex[v])
+					publisher = re.ReplaceAllString(publisher, "")
+				}
+				for _, v := range programNameReg {
+					re := regexp.MustCompile("(?i)" + regex[v])
+					programName = re.ReplaceAllString(programName, "")
+				}
+				// Ignore empty and googet labeled pacakges
+				if displayName == "" || strings.Contains(displayName, "GooGet -") {
+					continue
+				}
+				// Check if Package name is in display name removing spaces
+				if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, " ", "")), strings.ToLower(programName)) {
+					// Check if the value exists, move on if it doesn't
+
+					return displayName, productReg
+				}
+				// Check if Package name is in display name removing dashes
+				if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, "-", "")), strings.ToLower(programName)) {
+					// Check if the value exists, move on if it doesn't
+					return displayName, productReg
+				}
 				if strings.Contains(strings.ToLower(programName), strings.ToLower(strings.ReplaceAll(displayName, " ", ""))) {
 					// Check if the value exists, move on if it doesn't
-					un, _, err := q.GetStringValue("QuietUninstallString")
-					if err != nil {
-						un, _, err = q.GetStringValue("UninstallString")
-						if err != nil {
-							// UninstallString not found, move on to next entry
-							continue
-						}
-					}
-					return un
+					return displayName, productReg
+				}
+				a, _, err := q.GetStringValue("InstallSource")
+				if err != nil {
+					// InstallSource not found, move on to next entry
+					continue
+				}
+				iS := strings.Split(installSource, "@")
+				if strings.Contains(a, iS[0]) && installSource != "" {
+					return displayName, productReg
 				}
 			}
 		}
 	}
-	return ""
+	return "", ""
+}
+
+func uninstallString(regkey, extension string) string {
+	q, err := registry.OpenKey(registry.LOCAL_MACHINE, regkey, registry.ALL_ACCESS)
+	if err != nil {
+		logger.Error(err)
+		return ""
+	}
+	defer q.Close()
+	switch extension {
+	case "msi":
+		un, _, err := q.GetStringValue("UninstallString")
+		if err != nil {
+			logger.Error(err)
+			// UninstallString not found, move on
+			return ""
+		}
+		return un
+	default:
+		un, _, err := q.GetStringValue("QuietUninstallString")
+		if err != nil {
+			un, _, err = q.GetStringValue("UninstallString")
+			if err != nil {
+				// UninstallString not found, move on to next entry
+				return ""
+			}
+		}
+		return un
+	}
 
 }
 
@@ -188,15 +286,19 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 }
 
 // Uninstall performs a system specfic uninstall given a packages PackageState.
-func Uninstall(dir string, ps *goolib.PkgSpec) error {
+func Uninstall(dir string, state *client.PackageState) error {
 	var filePath string
+	ps := state.PackageSpec
 	un := ps.Uninstall
 	r := regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
 	// Automatically determine uninstall script if none is specified in spec.
 	if un.Path == "" {
 		switch filepath.Ext(ps.Install.Path) {
 		case ".msi":
-			u := uninstallString(ps.Authors, dir, ps.Name, "msi")
+			u := uninstallString(state.InstalledApp.Reg, "msi")
+			if u == "" {
+				return nil
+			}
 			u = strings.ReplaceAll(u, `/I`, `/X`)
 			commands := r.FindAllString(u, -1)
 			un.Path = strings.Replace(commands[0], "\"", "", -1)
@@ -207,7 +309,7 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 			un.Path = ps.Install.Path
 			filePath = un.Path
 		default:
-			u := uninstallString(ps.Authors, dir, ps.Name, "")
+			u := uninstallString(state.InstalledApp.Reg, "")
 			commands := r.FindAllString(u, -1)
 			if len(commands) > 0 {
 				// Remove the quotes from the install string since we handle that below
@@ -220,7 +322,6 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 			return nil
 		}
 	}
-
 	logger.Infof("Running uninstall command: %q", un.Path)
 	// logging is only useful for failed uninstall
 	// Only append the directory if the folder structure doesn't exist

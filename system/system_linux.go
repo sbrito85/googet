@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/oswrap"
 	"github.com/google/logger"
@@ -49,8 +50,8 @@ func Install(dir string, ps *goolib.PkgSpec) error {
 }
 
 // Uninstall performs a system specfic uninstall given a package extraction directory and a PkgSpec struct.
-func Uninstall(dir string, ps *goolib.PkgSpec) error {
-	un := ps.Uninstall
+func Uninstall(dir string, ps *client.PackageState) error {
+	un := ps.PackageSpec.Uninstall
 	if un.Path == "" {
 		return nil
 	}
@@ -73,4 +74,8 @@ func Uninstall(dir string, ps *goolib.PkgSpec) error {
 func InstallableArchs() ([]string, error) {
 	// Just return all archs as Linux builds are currently just used for testing.
 	return []string{"noarch", "x86_64", "x86_32", "arm", "arm64"}, nil
+}
+
+func AppAssociation(publisher, installSource, programName, extension string) (string, string) {
+	return "", ""
 }

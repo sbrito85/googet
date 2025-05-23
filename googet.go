@@ -30,6 +30,7 @@ import (
 
 	"github.com/go-yaml/yaml"
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/priority"
 	"github.com/google/googet/v2/system"
@@ -40,6 +41,7 @@ import (
 
 const (
 	stateFile = "googet.state"
+	dbFile    = "googet.db"
 	confFile  = "googet.conf"
 	logFile   = "googet.log"
 	cacheDir  = "cache"
@@ -272,18 +274,18 @@ func writeState(s *client.GooGetState, sf string) error {
 	return os.Rename(newStateFile, sf)
 }
 
-func readState(sf string) (*client.GooGetState, error) {
+func readState(sf string) (client.GooGetState, error) {
 	state, err := readStateFromPath(sf)
 	if err != nil {
 		sfNotExist := os.IsNotExist(err)
 		state, err = readStateFromPath(sf + ".bak")
 		if sfNotExist && os.IsNotExist(err) {
 			logger.Info("No state file found, assuming no packages installed.")
-			return &client.GooGetState{}, nil
+			return client.GooGetState{}, nil
 		}
 	}
 
-	return state, err
+	return *state, err
 }
 
 func readStateFromPath(sf string) (*client.GooGetState, error) {
@@ -522,10 +524,35 @@ func main() {
 	if err := os.MkdirAll(rootDir, 0774); err != nil {
 		logger.Fatalln("Error setting up root directory:", err)
 	}
-
 	lockFile = filepath.Join(rootDir, "googet.lock")
-	if err := obtainLock(lockFile); err != nil {
-		logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)
+	dbPath := filepath.Join(rootDir, dbFile)
+	// TODO: Move this conversion code when unused state code is cleaned up.
+	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+		fmt.Println("Creating Googet DB and converting State file...")
+		db, err := googetdb.NewDB(dbPath)
+		if err != nil {
+			logger.Fatalf("Unable to create initial db file. If db is not created, run again as admin: %v", err)
+		}
+		defer db.Close()
+		//check to see if state file still exists, then convert and remove old state. Request lock.
+		sf := filepath.Join(rootDir, stateFile)
+		if err := obtainLock(lockFile); err != nil {
+			logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)
+		}
+		state, err := readState(sf)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		db.WriteStateToDB(state)
+	} else {
+		// Allow installed to run through sql db creation
+		if flag.Args()[0] == "installed" {
+			os.Exit(int(cmdr.Execute(context.Background())))
+		}
+		// If we converted the db, we don't want to request the lock twice.
+		if err := obtainLock(lockFile); err != nil {
+			logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)
+		}
 	}
 	readConf(filepath.Join(rootDir, confFile))
 
@@ -550,7 +577,6 @@ func main() {
 		runDeferredFuncs()
 		logger.Fatalf("Error setting up repo directory: %v", err)
 	}
-
 	es := cmdr.Execute(context.Background())
 	runDeferredFuncs()
 	os.Exit(int(es))

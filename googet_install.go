@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
 	"github.com/google/logger"
@@ -51,6 +52,12 @@ func (cmd *installCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer db.Close()
+	var state client.GooGetState
 	if len(flags.Args()) == 0 {
 		fmt.Printf("%s\nUsage: %s\n", cmd.Synopsis(), cmd.Usage())
 		return subcommands.ExitFailure
@@ -65,11 +72,6 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 	exitCode := subcommands.ExitSuccess
 
 	cache := filepath.Join(rootDir, cacheDir)
-	sf := filepath.Join(rootDir, stateFile)
-	state, err := readState(sf)
-	if err != nil {
-		logger.Fatal(err)
-	}
 
 	if len(args) == 0 {
 		return exitCode
@@ -94,26 +96,36 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 					continue
 				}
 			}
-			if err := install.FromDisk(arg, cache, state, cmd.dbOnly, cmd.reinstall); err != nil {
+			// Pull the whole state to check against local pkgspec.
+			state, err = db.FetchPkgs()
+			if err != nil {
+				logger.Fatalf("Unable to fetch installed packges: %v", err)
+			}
+			insPkg, err := install.FromDisk(arg, cache, &state, cmd.dbOnly, cmd.reinstall)
+			if err != nil {
 				logger.Errorf("Error installing %s: %v", arg, err)
 				exitCode = subcommands.ExitFailure
 				continue
 			}
-			if err := writeState(state, sf); err != nil {
-				logger.Fatalf("Error writing state file: %v", err)
+			if err := db.WriteStateToDB(insPkg); err != nil {
+				logger.Fatalf("Error writing state database: %v", err)
 			}
 			continue
 		}
 
 		pi := goolib.PkgNameSplit(arg)
+		pkgState, err := db.FetchPkg(pi.Name)
+		if err != nil {
+			logger.Fatalf("Unable to fetch %v: %v", pi.Name, err)
+		}
 		if cmd.reinstall {
-			if err := reinstall(ctx, pi, *state, cmd.redownload, downloader); err != nil {
+			if err := reinstall(ctx, pi, pkgState, cmd.redownload, downloader); err != nil {
 				logger.Errorf("Error reinstalling %s: %v", pi.Name, err)
 				exitCode = subcommands.ExitFailure
 				continue
 			}
-			if err := writeState(state, sf); err != nil {
-				logger.Fatalf("Error writing state file: %v", err)
+			if err := db.WriteStateToDB(client.GooGetState{pkgState}); err != nil {
+				logger.Fatalf("Error writing state db: %v", err)
 			}
 			continue
 		}
@@ -144,7 +156,8 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 			exitCode = subcommands.ExitFailure
 			continue
 		}
-		ni, err := install.NeedsInstallation(pi, *state)
+		state = client.GooGetState{pkgState}
+		ni, err := install.NeedsInstallation(pi, state)
 		if err != nil {
 			logger.Error(err)
 			exitCode = subcommands.ExitFailure
@@ -155,7 +168,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 			continue
 		}
 		if !noConfirm {
-			b, err := enumerateDeps(pi, rm, r, archs, *state)
+			b, err := enumerateDeps(pi, rm, r, archs, state)
 			if err != nil {
 				logger.Error(err)
 				exitCode = subcommands.ExitFailure
@@ -166,21 +179,21 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 				continue
 			}
 		}
-		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, state, cmd.dbOnly, downloader); err != nil {
+		if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &state, cmd.dbOnly, downloader); err != nil {
 			logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
 			exitCode = subcommands.ExitFailure
 			continue
 		}
-		if err := writeState(state, sf); err != nil {
+		if err := db.WriteStateToDB(state); err != nil {
 			logger.Fatalf("error writing state file: %v", err)
 		}
 	}
 	return exitCode
 }
 
-func reinstall(ctx context.Context, pi goolib.PackageInfo, state client.GooGetState, rd bool, downloader *client.Downloader) error {
-	ps, err := state.GetPackageState(pi)
-	if err != nil {
+func reinstall(ctx context.Context, pi goolib.PackageInfo, ps client.PackageState, rd bool, downloader *client.Downloader) error {
+	// TODO: Cleanup reinstall logic to remove pi
+	if pi.Name == "" {
 		return fmt.Errorf("cannot reinstall something that is not already installed")
 	}
 	if !noConfirm {
@@ -189,7 +202,7 @@ func reinstall(ctx context.Context, pi goolib.PackageInfo, state client.GooGetSt
 			return nil
 		}
 	}
-	if err := install.Reinstall(ctx, ps, state, rd, downloader); err != nil {
+	if err := install.Reinstall(ctx, ps, rd, downloader); err != nil {
 		return fmt.Errorf("error reinstalling %s, %v", pi.Name, err)
 	}
 	return nil
