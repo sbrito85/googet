@@ -92,6 +92,9 @@ func createDB(dbFile string) (*sql.DB, error) {
 // WriteStateToDB writes new or partial state to the db.
 func (g *gooDB) WriteStateToDB(gooState client.GooGetState) error {
 	for _, pkgState := range gooState {
+		if pkgState.PackageSpec == nil {
+			continue
+		}
 		err := g.addPkg(pkgState)
 		if err != nil {
 			return err

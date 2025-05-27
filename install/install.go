@@ -317,6 +317,9 @@ func copyPkg(src, dst string) (retErr error) {
 // NeedsInstallation checks if a package version needs installation.
 func NeedsInstallation(pi goolib.PackageInfo, state client.GooGetState) (bool, error) {
 	for _, p := range state {
+		if p.PackageSpec == nil {
+			continue
+		}
 		if p.PackageSpec.Name == pi.Name && p.PackageSpec.Arch == pi.Arch {
 			c, err := goolib.Compare(p.PackageSpec.Version, pi.Ver)
 			if err != nil {
