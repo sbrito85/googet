@@ -116,6 +116,7 @@ func removeUninstallEntry(name string) error {
 	return registry.DeleteKey(registry.LOCAL_MACHINE, reg)
 }
 
+// AppAssociation locates and returns registry entry and name of installed application.
 func AppAssociation(publisher, installSource, programName, extension string) (string, string) {
 
 	var productroots = []string{
