@@ -76,6 +76,7 @@ func InstallableArchs() ([]string, error) {
 	return []string{"noarch", "x86_64", "x86_32", "arm", "arm64"}, nil
 }
 
+// AppAssociation returns empty strings and is a stub of the Windows implementation.
 func AppAssociation(publisher, installSource, programName, extension string) (string, string) {
 	return "", ""
 }

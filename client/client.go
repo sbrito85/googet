@@ -39,6 +39,7 @@ import (
 	"google.golang.org/api/googleapi"
 )
 
+// InstalledApplication describes the mapped Windows application to the package
 type InstalledApplication struct {
 	// Display Name of the installed application found in the registry
 	Name string

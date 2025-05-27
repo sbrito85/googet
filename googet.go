@@ -534,7 +534,7 @@ func main() {
 			logger.Fatalf("Unable to create initial db file. If db is not created, run again as admin: %v", err)
 		}
 		defer db.Close()
-		//check to see if state file still exists, then convert and remove old state. Request lock.
+		// Check to see if state file still exists, then convert and remove old state. Request lock.
 		sf := filepath.Join(rootDir, stateFile)
 		if err := obtainLock(lockFile); err != nil {
 			logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)
