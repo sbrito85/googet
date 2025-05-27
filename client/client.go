@@ -80,6 +80,9 @@ func (s *GooGetState) Remove(pi goolib.PackageInfo) error {
 // or error if no match is found.
 func (s *GooGetState) GetPackageState(pi goolib.PackageInfo) (PackageState, error) {
 	for _, ps := range *s {
+		if ps.PackageSpec == nil {
+			continue
+		}
 		if ps.Match(pi) {
 			return ps, nil
 		}
