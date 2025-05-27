@@ -60,6 +60,9 @@ func (cmd *verifyCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 	}
 	defer db.Close()
 	state, err := db.FetchPkgs()
+	if err != nil {
+		logger.Fatal(err)
+	}
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
 		logger.Fatal(err)

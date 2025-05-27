@@ -68,7 +68,7 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 		if err != nil {
 			logger.Fatalf("Unable to fetch installed packges: %v", err)
 		}
-		displayText = "Installed packages:\n"
+		displayText = "Installed packages:"
 	case 1:
 		pkg, err := db.FetchPkg(f.Arg(0))
 		if err != nil {
@@ -77,9 +77,9 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 		if pkg.PackageSpec != nil {
 			state = append(state, pkg)
 		}
-		displayText = fmt.Sprintf("Installed packages matching %q:\n", f.Arg(0))
+		displayText = fmt.Sprintf("Installed packages matching %q:", f.Arg(0))
 		if len(state) == 0 {
-			displayText = fmt.Sprintf("No package matching filter %q installed.\n", f.Arg(0))
+			displayText = fmt.Sprintf("No package matching filter %q installed.", f.Arg(0))
 		}
 	default:
 		fmt.Fprintln(os.Stderr, "Excessive arguments")
@@ -91,7 +91,7 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 	case "simple":
 		exitCode = cmd.formatSimple(state, displayText)
 	case "json":
-		exitCode = cmd.formatJson(state)
+		exitCode = cmd.formatJSON(state)
 	default:
 		fmt.Fprintln(os.Stderr, "Invalid format")
 		f.Usage()
@@ -108,7 +108,7 @@ func (cmd *installedCmd) formatSimple(state client.GooGetState, displayText stri
 	}
 
 	sort.Strings(pl)
-	fmt.Printf(displayText)
+	fmt.Println(displayText)
 
 	exitCode := subcommands.ExitFailure
 	for _, p := range pl {
@@ -138,7 +138,7 @@ func (cmd *installedCmd) formatSimple(state client.GooGetState, displayText stri
 	return exitCode
 }
 
-func (cmd *installedCmd) formatJson(state client.GooGetState) subcommands.ExitStatus {
+func (cmd *installedCmd) formatJSON(state client.GooGetState) subcommands.ExitStatus {
 	marshaled, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		logger.Fatalf("marshaling error: %s", err)

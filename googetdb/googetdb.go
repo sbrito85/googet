@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package db manages the googet state sqlite database.
+// Package googetdb manages the googet state sqlite database.
 package googetdb
 
 import (
@@ -150,16 +150,22 @@ func (g *gooDB) FetchPkg(pkgName string) (client.PackageState, error) {
 		ORDER BY pkg_name
 		`
 	spec, err := g.db.Query(selectSpecQuery, pkgName)
-	defer spec.Close()
 	if err != nil {
 		return client.PackageState{}, nil
 	}
+	defer spec.Close()
 	for spec.Next() {
 		var jsonState string
 		err = spec.Scan(
 			&jsonState,
 		)
+		if err != nil {
+			return pkgState, err
+		}
 		err = json.Unmarshal([]byte(jsonState), &pkgState)
+		if err != nil {
+			return pkgState, err
+		}
 	}
 	return pkgState, nil
 }
