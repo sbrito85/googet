@@ -68,6 +68,22 @@ func (cmd *installedCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 		if err != nil {
 			logger.Fatalf("Unable to fetch installed packges: %v", err)
 		}
+		if len(state) == 0 {
+			logger.Infof("Database")
+			sf := filepath.Join(rootDir, stateFile)
+			stateFile, err := readState(sf)
+			if err != nil {
+				logger.Fatal(err)
+			}
+			if len(stateFile) > 0 {
+				logger.Info("Found empty state and existing state file, converting...")
+				db.WriteStateToDB(stateFile)
+				state, err = db.FetchPkgs()
+				if err != nil {
+					logger.Fatalf("Unable to fetch installed packges: %v", err)
+				}
+			}
+		}
 		displayText = "Installed packages:"
 	case 1:
 		pkg, err := db.FetchPkg(f.Arg(0))

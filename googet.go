@@ -528,6 +528,9 @@ func main() {
 	dbPath := filepath.Join(rootDir, dbFile)
 	// TODO: Move this conversion code when unused state code is cleaned up.
 	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+		if err := obtainLock(lockFile); err != nil {
+			logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)
+		}
 		fmt.Println("Creating Googet DB and converting State file...")
 		db, err := googetdb.NewDB(dbPath)
 		if err != nil {
@@ -536,9 +539,6 @@ func main() {
 		defer db.Close()
 		// Check to see if state file still exists, then convert and remove old state. Request lock.
 		sf := filepath.Join(rootDir, stateFile)
-		if err := obtainLock(lockFile); err != nil {
-			logger.Fatalf("Cannot obtain GooGet lock, you may need to run with admin rights, error: %v", err)
-		}
 		state, err := readState(sf)
 		if err != nil {
 			logger.Fatal(err)
