@@ -40,7 +40,7 @@ func TestConvertStatetoDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to write packages to db: %v", err)
 	}
-	pkgs, err := db.FetchPkgs()
+	pkgs, err := db.FetchPkgs("")
 	if err != nil {
 		t.Errorf("Unable to fetch packages: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestRemovePackage(t *testing.T) {
 		client.PackageState{PackageSpec: &goolib.PkgSpec{Name: "test1"}},
 	}
 	db.RemovePkg("test2", "")
-	pkgs, err := db.FetchPkgs()
+	pkgs, err := db.FetchPkgs("")
 	if err != nil {
 		t.Errorf("Unable to fetch packages: %v", err)
 	}
