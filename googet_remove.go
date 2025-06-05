@@ -57,7 +57,7 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 	if err != nil {
 		logger.Fatal(err)
 	}
-	state, err := db.FetchPkgs()
+	state, err := db.FetchPkgs("")
 	if err != nil {
 		logger.Fatalf("Unable to fetch installed pacakges: %v", err)
 	}

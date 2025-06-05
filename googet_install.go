@@ -97,7 +97,7 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 				}
 			}
 			// Pull the whole state to check against local pkgspec.
-			state, err = db.FetchPkgs()
+			state, err = db.FetchPkgs("")
 			if err != nil {
 				logger.Fatalf("Unable to fetch installed packges: %v", err)
 			}
