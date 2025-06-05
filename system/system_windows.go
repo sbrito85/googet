@@ -145,7 +145,6 @@ func AppAssociation(publisher, installSource, programName, extension string) (st
 				continue
 			}
 
-			
 			if extension == ".msi" && installSource != "" {
 				a, _, err := q.GetStringValue("InstallSource")
 				if err != nil {
