@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
-	"github.com/google/googet/v2/install"
-	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/googetdb"
+	"github.com/google/googet/v2/goolib"
+	"github.com/google/googet/v2/install"
 	"github.com/google/googet/v2/system"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
@@ -34,7 +34,7 @@ import (
 
 type checkCmd struct {
 	sources string
-	dryRun bool
+	dryRun  bool
 }
 
 func (*checkCmd) Name() string     { return "check" }
@@ -58,7 +58,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	}
 	defer db.Close()
 	state, err := db.FetchPkgs()
-	var newPkgs client.GooGetState 
+	var newPkgs client.GooGetState
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
 		logger.Fatal(err)
@@ -68,7 +68,10 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		logger.Fatal(err)
 	}
 	rm := downloader.AvailableVersions(ctx, repos, cache, cacheLife)
-	for _, repo := range rm {
+	unmanaged := make(map[string]string)
+	fmt.Println("Searching for unmanaged software...")
+	for r, repo := range rm {
+		fmt.Println(r)
 		for _, p := range repo.Packages {
 			match := false
 			for _, k := range state {
@@ -77,38 +80,40 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 					break
 				}
 			}
-			if !match {
-				filteredState = append(filteredState, p)
+			if match {
+				continue
 			}
-		}
-	}
-	fmt.Println("Searching for unmanaged software...")
-	unmanaged := make(map[string]string)
-	for _, v := range filteredState {
-		app, _ := system.AppAssociation(v.PackageSpec.Authors, "", v.PackageSpec.Name, filepath.Ext(v.PackageSpec.Install.Path))
-		if app != "" {
-			if !cmd.dryRun {
-				pi := goolib.PackageInfo {
-						Name: v.PackageSpec.Name, 
-						Arch: v.PackageSpec.Arch, 
-						Ver: v.PackageSpec.Version,
-					}
+			filteredState = append(filteredState, p)
+			app, _ := system.AppAssociation(p.PackageSpec.Authors, "", p.PackageSpec.Name, filepath.Ext(p.PackageSpec.Install.Path))
+			if app != "" {
+				unmanaged[p.PackageSpec.Name] = app
+				if cmd.dryRun {
+					continue
+				}
+				pi := goolib.PackageInfo{
+					Name: p.PackageSpec.Name,
+					Arch: p.PackageSpec.Arch,
+					Ver:  p.PackageSpec.Version,
+				}
 				if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &newPkgs, true, downloader); err != nil {
 					logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
 					exitCode = subcommands.ExitFailure
 					continue
 				}
-				fmt.Printf("Unmanaged software added to googet database(packagename: application name): %v: %v\n", v.PackageSpec.Name, app)
-				logger.Infof("Unmanaged software added to googet database(packagename: application name): %v: %v\n", v.PackageSpec.Name, app)
+				logger.Infof("Unmanaged software added to googet database(packagename: application name): %v: %v\n", p.PackageSpec.Name, app)
 			}
-			unmanaged[v.PackageSpec.Name] = app
+		}
+	}
+	if len(newPkgs) != 0 {
+		if err = db.WriteStateToDB(newPkgs); err != nil {
+			logger.Fatal(err)
 		}
 	}
 	if len(unmanaged) > 0 {
 		fmt.Println("Found the following unmanaged software (Package: Software name) ...")
 		for k, v := range unmanaged {
 			fmt.Printf(" %v: %v\n", k, v)
-		}	
+		}
 	}
 	return exitCode
 }
