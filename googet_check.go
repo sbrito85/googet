@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/install"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/system"
@@ -57,7 +58,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	}
 	defer db.Close()
 	state, err := db.FetchPkgs()
-	//var newPkgs client.GooGetState 
+	var newPkgs client.GooGetState 
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
 		logger.Fatal(err)
@@ -86,22 +87,25 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	for _, v := range filteredState {
 		app, _ := system.AppAssociation(v.PackageSpec.Authors, "", v.PackageSpec.Name, filepath.Ext(v.PackageSpec.Install.Path))
 		if app != "" {
-			/*pi := goolib.PackageInfo {
-					Name: v.PackageSpec.Name, 
-					Arch: v.PackageSpec.Arch, 
-					Ver: v.PackageSpec.Version
+			if !cmd.dryRun {
+				pi := goolib.PackageInfo {
+						Name: v.PackageSpec.Name, 
+						Arch: v.PackageSpec.Arch, 
+						Ver: v.PackageSpec.Version,
+					}
+				if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &newPkgs, true, downloader); err != nil {
+					logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
+					exitCode = subcommands.ExitFailure
+					continue
 				}
-			if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &newPkgs, true, downloader); err != nil {
-				logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
-				exitCode = subcommands.ExitFailure
-				continue
-			}*/
-			logger.Infof("Unmanaged software found(packagename: application name): %v: %v\n", v.PackageSpec.Name, app)
+				fmt.Printf("Unmanaged software added to googet database(packagename: application name): %v: %v\n", v.PackageSpec.Name, app)
+				logger.Infof("Unmanaged software added to googet database(packagename: application name): %v: %v\n", v.PackageSpec.Name, app)
+			}
 			unmanaged[v.PackageSpec.Name] = app
 		}
 	}
 	if len(unmanaged) > 0 {
-		fmt.Println("Found the following unmanaged software (Package: Software name ...)")
+		fmt.Println("Found the following unmanaged software (Package: Software name) ...")
 		for k, v := range unmanaged {
 			fmt.Printf(" %v: %v\n", k, v)
 		}	
