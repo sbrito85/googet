@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
@@ -51,13 +52,15 @@ func (cmd *checkCmd) SetFlags(f *flag.FlagSet) {
 func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	exitCode := subcommands.ExitFailure
 	cache := filepath.Join(rootDir, cacheDir)
-	var filteredState []goolib.RepoSpec
 	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
 	if err != nil {
 		logger.Fatal(err)
 	}
 	defer db.Close()
 	state, err := db.FetchPkgs()
+	if err != nil {
+		logger.Fatal(err)
+	}
 	var newPkgs client.GooGetState
 	downloader, err := client.NewDownloader(proxyServer)
 	if err != nil {
@@ -67,23 +70,19 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	if err != nil {
 		logger.Fatal(err)
 	}
+
 	rm := downloader.AvailableVersions(ctx, repos, cache, cacheLife)
 	unmanaged := make(map[string]string)
+	installed := make(map[string]struct{})
+	for _, ps := range state {
+	  installed[ps.PackageSpec.Name] = struct{}{}
+	}
 	fmt.Println("Searching for unmanaged software...")
 	for r, repo := range rm {
-		fmt.Println(r)
 		for _, p := range repo.Packages {
-			match := false
-			for _, k := range state {
-				if p.PackageSpec.Name == k.PackageSpec.Name {
-					match = true
-					break
-				}
+			if _, ok := installed[p.PackageSpec.Name]; ok {
+  				continue
 			}
-			if match {
-				continue
-			}
-			filteredState = append(filteredState, p)
 			app, _ := system.AppAssociation(p.PackageSpec.Authors, "", p.PackageSpec.Name, filepath.Ext(p.PackageSpec.Install.Path))
 			if app != "" {
 				unmanaged[p.PackageSpec.Name] = app
@@ -94,6 +93,19 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 					Name: p.PackageSpec.Name,
 					Arch: p.PackageSpec.Arch,
 					Ver:  p.PackageSpec.Version,
+				}
+				deps, err := install.ListDeps(pi, rm, r, archs)
+				if err != nil {
+					logger.Fatal(err)
+				}
+				for _, di := range deps {
+					pkg, err := db.FetchPkg(di.Name)
+					if err != nil {
+						logger.Fatal(err)
+					}
+					if pkg.PackageSpec != nil {
+						newPkgs.Add(pkg)
+					}
 				}
 				if err := install.FromRepo(ctx, pi, r, cache, rm, archs, &newPkgs, true, downloader); err != nil {
 					logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
@@ -109,11 +121,18 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 			logger.Fatal(err)
 		}
 	}
-	if len(unmanaged) > 0 {
-		fmt.Println("Found the following unmanaged software (Package: Software name) ...")
-		for k, v := range unmanaged {
-			fmt.Printf(" %v: %v\n", k, v)
-		}
+	if len(unmanaged) == 0 {
+		fmt.Println("No unmanaged software found.")
+		return exitCode
+	}
+	keys := make([]string, 0, len(unmanaged))
+	for k := range unmanaged {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	fmt.Println("Found the following unmanaged software (Package: Software name) ...")
+	for _, k := range keys{
+		fmt.Printf(" %v: %v\n", k, unmanaged[k])
 	}
 	return exitCode
 }

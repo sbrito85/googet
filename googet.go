@@ -514,7 +514,7 @@ func main() {
 	cmdr.ImportantFlag("verbose")
 	cmdr.ImportantFlag("noconfirm")
 
-	nonLockingCommands := []string{"help", "commands", "flags"}
+	nonLockingCommands := []string{"help", "commands", "flags", "listrepos"}
 	if flag.NArg() == 0 || goolib.ContainsString(flag.Args()[0], nonLockingCommands) {
 		os.Exit(int(cmdr.Execute(context.Background())))
 	}
