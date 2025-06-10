@@ -21,8 +21,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
 	"path/filepath"
+	"sort"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/googetdb"
@@ -75,13 +75,13 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	unmanaged := make(map[string]string)
 	installed := make(map[string]struct{})
 	for _, ps := range state {
-	  installed[ps.PackageSpec.Name] = struct{}{}
+		installed[ps.PackageSpec.Name] = struct{}{}
 	}
 	fmt.Println("Searching for unmanaged software...")
 	for r, repo := range rm {
 		for _, p := range repo.Packages {
 			if _, ok := installed[p.PackageSpec.Name]; ok {
-  				continue
+				continue
 			}
 			app, _ := system.AppAssociation(p.PackageSpec.Authors, "", p.PackageSpec.Name, filepath.Ext(p.PackageSpec.Install.Path))
 			if app != "" {
@@ -131,7 +131,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	}
 	sort.Strings(keys)
 	fmt.Println("Found the following unmanaged software (Package: Software name) ...")
-	for _, k := range keys{
+	for _, k := range keys {
 		fmt.Printf(" %v: %v\n", k, unmanaged[k])
 	}
 	return exitCode
