@@ -57,7 +57,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		logger.Fatal(err)
 	}
 	defer db.Close()
-	state, err := db.FetchPkgs()
+	state, err := db.FetchPkgs("")
 	if err != nil {
 		logger.Fatal(err)
 	}
