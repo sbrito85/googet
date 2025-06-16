@@ -174,10 +174,13 @@ func (g *gooDB) FetchPkg(pkgName string) (client.PackageState, error) {
 }
 
 // FetchPkgs exports all of the current packages in the googet database
-func (g *gooDB) FetchPkgs() (client.GooGetState, error) {
+func (g *gooDB) FetchPkgs(pkgName string) (client.GooGetState, error) {
 	var state client.GooGetState
-
-	pkgs, err := g.db.Query(`Select pkg_name from InstalledPackages`)
+	pkgQuery := `Select pkg_name from InstalledPackages`
+	if pkgName != "" {
+		pkgQuery = fmt.Sprintf(`Select pkg_name from InstalledPackages where pkg_name like "%s%%"`, pkgName)
+	}
+	pkgs, err := g.db.Query(pkgQuery)
 	if err != nil {
 		return nil, err
 	}

@@ -39,6 +39,9 @@ var toRemove []string
 // minInstalled reports whether the package is installed at the given version or greater.
 func minInstalled(pi goolib.PackageInfo, state client.GooGetState) (bool, error) {
 	for _, p := range state {
+		if p.PackageSpec == nil {
+			continue
+		}
 		if p.PackageSpec.Name == pi.Name && (pi.Arch == "" || p.PackageSpec.Arch == pi.Arch) {
 			c, err := goolib.Compare(pi.Ver, p.PackageSpec.Version)
 			if err != nil {

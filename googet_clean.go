@@ -65,7 +65,7 @@ func cleanPackages(pl []string) {
 		logger.Fatal(err)
 	}
 	defer db.Close()
-	state, err := db.FetchPkgs()
+	state, err := db.FetchPkgs("")
 	if err != nil {
 		logger.Fatal(err)
 	}

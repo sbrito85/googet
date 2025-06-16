@@ -54,7 +54,7 @@ func (cmd *updateCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfa
 	}
 	defer db.Close()
 	cache := filepath.Join(rootDir, cacheDir)
-	state, err := db.FetchPkgs()
+	state, err := db.FetchPkgs("")
 	if err != nil {
 		logger.Fatalf("Unable to fetch installed packges: %v", err)
 	}

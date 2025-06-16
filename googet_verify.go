@@ -59,7 +59,7 @@ func (cmd *verifyCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 		logger.Fatal(err)
 	}
 	defer db.Close()
-	state, err := db.FetchPkgs()
+	state, err := db.FetchPkgs("")
 	if err != nil {
 		logger.Fatal(err)
 	}
