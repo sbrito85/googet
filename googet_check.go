@@ -22,7 +22,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
+	"maps"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/googetdb"
@@ -125,13 +126,8 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		fmt.Println("No unmanaged software found.")
 		return exitCode
 	}
-	keys := make([]string, 0, len(unmanaged))
-	for k := range unmanaged {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
 	fmt.Println("Found the following unmanaged software (Package: Software name) ...")
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(unmanaged)) {
 		fmt.Printf(" %v: %v\n", k, unmanaged[k])
 	}
 	return exitCode
