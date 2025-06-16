@@ -20,10 +20,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"maps"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/googetdb"
