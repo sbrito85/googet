@@ -88,6 +88,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 			if app != "" {
 				unmanaged[p.PackageSpec.Name] = app
 				if cmd.dryRun {
+					logger.Infof("Unmanaged software found during dry_run(packagename: application name): %v: %v\n", p.PackageSpec.Name, app)
 					continue
 				}
 				pi := goolib.PackageInfo{
