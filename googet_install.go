@@ -119,6 +119,10 @@ func (cmd *installCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...in
 			logger.Fatalf("Unable to fetch %v: %v", pi.Name, err)
 		}
 		if cmd.reinstall {
+			if pkgState.PackageSpec == nil {
+				fmt.Printf("package %s not installed on the system.\n", pi.Name)
+				continue
+			}
 			if err := reinstall(ctx, pi, pkgState, cmd.redownload, downloader); err != nil {
 				logger.Errorf("Error reinstalling %s: %v", pi.Name, err)
 				exitCode = subcommands.ExitFailure
