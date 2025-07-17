@@ -77,6 +77,6 @@ func InstallableArchs() ([]string, error) {
 }
 
 // AppAssociation returns empty strings and is a stub of the Windows implementation.
-func AppAssociation(publisher, installSource, programName, extension string) (string, string) {
+func AppAssociation(ps *goolib.PkgSpec, installSource string) (string, string) {
 	return "", ""
 }
