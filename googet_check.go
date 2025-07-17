@@ -84,7 +84,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 			if _, ok := installed[p.PackageSpec.Name]; ok {
 				continue
 			}
-			app, _ := system.AppAssociation(p.PackageSpec.Authors, "", p.PackageSpec.Name, filepath.Ext(p.PackageSpec.Install.Path))
+			app, _ := system.AppAssociation(p.PackageSpec, "")
 			if app != "" {
 				unmanaged[p.PackageSpec.Name] = app
 				if cmd.dryRun {

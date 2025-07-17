@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/google/googet/v2/client"
@@ -105,8 +104,10 @@ func (g *gooDB) WriteStateToDB(gooState client.GooGetState) error {
 
 func (g *gooDB) addPkg(pkgState client.PackageState) error {
 	spec := pkgState.PackageSpec
-	pkgState.InstalledApp.Name, pkgState.InstalledApp.Reg = system.AppAssociation(spec.Authors, pkgState.LocalPath, spec.Name, filepath.Ext(spec.Install.Path))
+
+	pkgState.InstalledApp.Name, pkgState.InstalledApp.Reg = system.AppAssociation(spec, pkgState.LocalPath)
 	pkgState.InstallDate = time.Now().Unix()
+
 	tx, err := g.db.Begin()
 	if err != nil {
 		return err
