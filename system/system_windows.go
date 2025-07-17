@@ -118,7 +118,7 @@ func removeUninstallEntry(name string) error {
 
 // AppAssociation locates and returns registry entry and name of installed application.
 func AppAssociation(ps *goolib.PkgSpec, installSource string) (string, string) {
-	// Packages with files are portable and don't have actual installers. 
+	// Packages with files are portable and don't have actual installers.
 	if ps.Files != nil {
 		return "", ""
 	}
@@ -185,6 +185,7 @@ func AppAssociation(ps *goolib.PkgSpec, installSource string) (string, string) {
 			}
 			if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, " ", "")), strings.ToLower(programName)) {
 				// Do an extra check for publisher for smaller package names and gain more confidence that we are returning the right package.
+				fmt.Printf("%v: %v", regPublisher, publisher)
 				if len(programName) < 4 && !strings.Contains(strings.ToLower(strings.ReplaceAll(regPublisher, " ", "")), strings.ToLower(publisher)) {
 					return "", ""
 				}
