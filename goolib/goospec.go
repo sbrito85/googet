@@ -73,23 +73,23 @@ var validArch = []string{"noarch", "x86_64", "x86_32", "arm", "arm64"}
 
 // PkgSpec is an individual package specification.
 type PkgSpec struct {
-	Name                string
-	Version             string
-	Arch                string
-	ReleaseNotes        []string          `json:",omitempty"`
-	Description         string            `json:",omitempty"`
-	License             string            `json:",omitempty"`
-	Authors             string            `json:",omitempty"`
-	Owners              string            `json:",omitempty"`
-	Source              string            `json:",omitempty"`
-	Tags                map[string][]byte `json:",omitempty"`
-	PkgDependencies     map[string]string `json:",omitempty"`
-	Replaces            []string
-	Conflicts           []string
-	Install             ExecFile
-	Uninstall           ExecFile
-	Verify              ExecFile
-	Files               map[string]string `json:",omitempty"`
+	Name            string
+	Version         string
+	Arch            string
+	ReleaseNotes    []string          `json:",omitempty"`
+	Description     string            `json:",omitempty"`
+	License         string            `json:",omitempty"`
+	Authors         string            `json:",omitempty"`
+	Owners          string            `json:",omitempty"`
+	Source          string            `json:",omitempty"`
+	Tags            map[string][]byte `json:",omitempty"`
+	PkgDependencies map[string]string `json:",omitempty"`
+	Replaces        []string
+	Conflicts       []string
+	Install         ExecFile
+	Uninstall       ExecFile
+	Verify          ExecFile
+	Files           map[string]string `json:",omitempty"`
 	// The Display Name of the entry in "Add/Remove programs" for matching
 	ExternalProgramName string
 }
