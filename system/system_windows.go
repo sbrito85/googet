@@ -117,8 +117,11 @@ func removeUninstallEntry(name string) error {
 }
 
 // AppAssociation locates and returns registry entry and name of installed application.
-func AppAssociation(publisher, installSource, programName, extension string) (string, string) {
-
+func AppAssociation(ps *goolib.PkgSpec, installSource string) (string, string) {
+	// Packages with files are portable and don't have actual installers.
+	if ps.Files != nil {
+		return "", ""
+	}
 	var productroots = []string{
 		`SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`,
 		`SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\`,
@@ -145,7 +148,7 @@ func AppAssociation(publisher, installSource, programName, extension string) (st
 				continue
 			}
 
-			if extension == ".msi" && installSource != "" {
+			if filepath.Ext(ps.Install.Path) == ".msi" && installSource != "" {
 				a, _, err := q.GetStringValue("InstallSource")
 				if err != nil {
 					// InstallSource not found, move on to next entry
@@ -161,30 +164,41 @@ func AppAssociation(publisher, installSource, programName, extension string) (st
 					return name, productReg
 				}
 			}
+			if displayName == ps.ExternalProgramName && ps.ExternalProgramName != "" {
+				return displayName, productReg
+			}
 			// TODO: Look into precompiling regex
+			var publisher, programName string
 			for _, v := range publisherNameReg {
 				re := regexp.MustCompile("(?i)" + regex[v])
-				publisher = re.ReplaceAllString(publisher, "")
+				publisher = re.ReplaceAllString(ps.Authors, "")
 			}
 			for _, v := range programNameReg {
 				re := regexp.MustCompile("(?i)" + regex[v])
-				programName = re.ReplaceAllString(programName, "")
+				programName = re.ReplaceAllString(ps.Name, "")
 			}
 			// Ignore empty and googet labeled pacakges
 			if displayName == "" || strings.Contains(displayName, "GooGet -") {
 				continue
 			}
 			// Check if Package name is in display name removing spaces
+			regPublisher, _, err := q.GetStringValue("Publisher")
+			if err != nil {
+				continue
+			}
 			if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, " ", "")), strings.ToLower(programName)) {
 				// Do an extra check for publisher for smaller package names and gain more confidence that we are returning the right package.
-				if len(programName) < 4 && !strings.Contains(strings.ToLower(strings.ReplaceAll(publisher, " ", "")), strings.ToLower(publisher)) {
+				if len(programName) < 4 && !strings.Contains(strings.ToLower(strings.ReplaceAll(regPublisher, " ", "")), strings.ToLower(publisher)) {
 					return "", ""
 				}
 				return displayName, productReg
 			}
 			// Check if Package name is in display name removing dashes
 			if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, "-", "")), strings.ToLower(programName)) {
-				// Check if the value exists, move on if it doesn't
+				// Do an extra check for publisher for smaller package names and gain more confidence that we are returning the right package.
+				if len(programName) < 4 && !strings.Contains(strings.ToLower(strings.ReplaceAll(regPublisher, " ", "")), strings.ToLower(publisher)) {
+					return "", ""
+				}
 				return displayName, productReg
 			}
 			a, _, err := q.GetStringValue("InstallSource")
