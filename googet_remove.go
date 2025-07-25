@@ -19,10 +19,10 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"strings"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/googetdb"
