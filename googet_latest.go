@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/googet/v2/client"
+	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
@@ -70,7 +71,8 @@ func (cmd *latestCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 		return subcommands.ExitSuccess
 	}
 
-	state, err := readState(filepath.Join(rootDir, stateFile))
+	db, err := googetdb.NewDB(filepath.Join(rootDir, dbFile))
+	state, err := db.FetchPkgs("")
 	if err != nil {
 		logger.Fatal(err)
 	}
