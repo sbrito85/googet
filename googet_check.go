@@ -29,6 +29,7 @@ import (
 	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/install"
+	"github.com/google/googet/v2/repo"
 	"github.com/google/googet/v2/settings"
 	"github.com/google/googet/v2/system"
 	"github.com/google/logger"
@@ -68,7 +69,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	if err != nil {
 		logger.Fatal(err)
 	}
-	repos, err := buildSources(cmd.sources)
+	repos, err := repo.BuildSources(cmd.sources)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -80,8 +81,8 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		installed[ps.PackageSpec.Name] = struct{}{}
 	}
 	fmt.Println("Searching for unmanaged software...")
-	for r, repo := range rm {
-		for _, p := range repo.Packages {
+	for u, r := range rm {
+		for _, p := range r.Packages {
 			if _, ok := installed[p.PackageSpec.Name]; ok {
 				continue
 			}
@@ -97,7 +98,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 					Arch: p.PackageSpec.Arch,
 					Ver:  p.PackageSpec.Version,
 				}
-				deps, err := install.ListDeps(pi, rm, r, settings.Archs)
+				deps, err := install.ListDeps(pi, rm, u, settings.Archs)
 				if err != nil {
 					logger.Fatal(err)
 				}
@@ -110,7 +111,7 @@ func (cmd *checkCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 						newPkgs.Add(pkg)
 					}
 				}
-				if err := install.FromRepo(ctx, pi, r, cache, rm, settings.Archs, &newPkgs, true, downloader); err != nil {
+				if err := install.FromRepo(ctx, pi, u, cache, rm, settings.Archs, &newPkgs, true, downloader); err != nil {
 					logger.Errorf("Error installing %s.%s.%s: %v", pi.Name, pi.Arch, pi.Ver, err)
 					exitCode = subcommands.ExitFailure
 					continue

@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
+	"github.com/google/googet/v2/repo"
 	"github.com/google/googet/v2/settings"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
@@ -66,7 +67,7 @@ func (cmd *availableCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...inte
 		return subcommands.ExitUsageError
 	}
 
-	repos, err := buildSources(cmd.sources)
+	repos, err := repo.BuildSources(cmd.sources)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -81,28 +82,28 @@ func (cmd *availableCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...inte
 
 	m := make(map[string][]string)
 	rm := downloader.AvailableVersions(ctx, repos, settings.CacheDir(), settings.CacheLife)
-	for r, repo := range rm {
-		for _, p := range repo.Packages {
-			m[r] = append(m[r], p.PackageSpec.Name+"."+p.PackageSpec.Arch+"."+p.PackageSpec.Version)
+	for u, r := range rm {
+		for _, p := range r.Packages {
+			m[u] = append(m[u], p.PackageSpec.Name+"."+p.PackageSpec.Arch+"."+p.PackageSpec.Version)
 		}
 	}
 
-	for r, pl := range m {
-		logger.Infof("Searching %q for packages matching filter %q.", r, filter)
+	for u, pl := range m {
+		logger.Infof("Searching %q for packages matching filter %q.", u, filter)
 		sort.Strings(pl)
 		i := sort.SearchStrings(pl, filter)
 		if i >= len(pl) || !strings.Contains(pl[i], filter) {
 			continue
 		}
 		if !cmd.info {
-			fmt.Println(r)
+			fmt.Println(u)
 		}
 		for _, p := range pl {
 			if strings.Contains(p, filter) {
 				exitCode = subcommands.ExitSuccess
 				pi := goolib.PkgNameSplit(p)
 				if cmd.info {
-					repo(pi, rm)
+					findAndPrintPackageInfo(pi, rm)
 					continue
 				}
 				fmt.Println(" ", pi.Name+"."+pi.Arch+" "+pi.Ver)
@@ -116,12 +117,14 @@ func (cmd *availableCmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...inte
 	return exitCode
 }
 
-func repo(pi goolib.PackageInfo, rm client.RepoMap) {
-	for r, repo := range rm {
-		for _, p := range repo.Packages {
+// findAndPrintPackageInfo finds the repo and PkgSpec matching the given package
+// info and then prints out their details.
+func findAndPrintPackageInfo(pi goolib.PackageInfo, rm client.RepoMap) {
+	for u, r := range rm {
+		for _, p := range r.Packages {
 			if p.PackageSpec.Name == pi.Name && p.PackageSpec.Arch == pi.Arch && p.PackageSpec.Version == pi.Ver {
 				fmt.Println()
-				p.PackageSpec.PrettyPrint(os.Stdout, r)
+				p.PackageSpec.PrettyPrint(os.Stdout, u)
 				return
 			}
 		}
