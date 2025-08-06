@@ -149,8 +149,7 @@ func (i *installer) installFromFile(path string) error {
 		fmt.Printf("Not installing %s...\n", base)
 		return nil
 	}
-	err := install.FromDisk(path, i.cache, i.dbOnly, i.shouldReinstall, i.db)
-	if err != nil {
+	if err := install.FromDisk(path, i.cache, i.dbOnly, i.shouldReinstall, i.db); err != nil {
 		return fmt.Errorf("installing %s: %v", path, err)
 	}
 	return nil
