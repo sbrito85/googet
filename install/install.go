@@ -231,16 +231,10 @@ func FromDisk(pkgPath, cache string, dbOnly, shouldReinstall bool, db *googetdb.
 	if shouldReinstall {
 		logger.Infof("Reinstallation of %q, version %q completed", zs.Name, zs.Version)
 		fmt.Printf("Reinstallation of %s completed\n", zs.Name)
-		return db.AddPkg(client.PackageState{
-			LocalPath:      dst,
-			PackageSpec:    zs,
-			InstalledFiles: insFiles,
-		})
+	} else {
+		logger.Infof("Installation of %q, version %q completed", zs.Name, zs.Version)
+		fmt.Printf("Installation of %s completed\n", zs.Name)
 	}
-
-	logger.Infof("Installation of %q, version %q completed", zs.Name, zs.Version)
-	fmt.Printf("Installation of %s completed\n", zs.Name)
-
 	return db.AddPkg(client.PackageState{
 		LocalPath:      dst,
 		PackageSpec:    zs,
