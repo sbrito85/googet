@@ -180,7 +180,7 @@ func TestInstall(t *testing.T) {
 			desc: "remove-replaced-package",
 			args: []string{"B"},
 			state: client.GooGetState{
-			{PackageSpec: &goolib.PkgSpec{Name: "A", Arch: "noarch", Version: "5"}},
+				{PackageSpec: &goolib.PkgSpec{Name: "A", Arch: "noarch", Version: "5"}},
 			},
 			packages: []goolib.PkgSpec{
 				{Name: "A", Arch: "noarch", Version: "5"},
