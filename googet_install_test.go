@@ -194,12 +194,12 @@ func TestInstall(t *testing.T) {
 			args: []string{"B"},
 			state: client.GooGetState{
 				{PackageSpec: &goolib.PkgSpec{Name: "A", Arch: "noarch", Version: "5"}},
-				{PackageSpec: &goolib.PkgSpec{Name: "C", Arch: "noarch", Version: "3", PkgDependencies: map[string]string{"A": "2"}}},
+				{PackageSpec: &goolib.PkgSpec{Name: "C", Arch: "noarch", Version: "3", PkgDependencies: map[string]string{"A": "5"}}},
 			},
 			packages: []goolib.PkgSpec{
 				{Name: "A", Arch: "noarch", Version: "5"},
 				{Name: "B", Arch: "noarch", Version: "2", Replaces: []string{"A.noarch.3"}},
-				{Name: "C", Arch: "noarch", Version: "3", PkgDependencies: map[string]string{"A": "2"}},
+				{Name: "C", Arch: "noarch", Version: "3", PkgDependencies: map[string]string{"A": "5"}},
 			},
 			wantInstalled: []string{"B.noarch.2"},
 			wantState:     []string{"B.noarch.2"},
