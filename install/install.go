@@ -103,7 +103,8 @@ func installDeps(ctx context.Context, ps *goolib.PkgSpec, cache string, rm clien
 	// Check for and install any dependencies.
 	for p, ver := range ps.PkgDependencies {
 		pi := goolib.PkgNameSplit(p)
-		ok, err := minInstalled(goolib.PackageInfo{Name: pi.Name, Arch: pi.Arch, Ver: ver}, db); if err != nil {
+		ok, err := minInstalled(goolib.PackageInfo{Name: pi.Name, Arch: pi.Arch, Ver: ver}, db)
+		if err != nil {
 			return err
 		} else if ok {
 			logger.Infof("Dependency met: %s.%s with version greater than %s installed", pi.Name, pi.Arch, ver)
