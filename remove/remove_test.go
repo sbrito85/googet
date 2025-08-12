@@ -37,7 +37,6 @@ func init() {
 }
 
 func TestUninstallPkg(t *testing.T) {
-	// Set up the installer.
 	settings.Initialize(t.TempDir(), false)
 	src, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -96,7 +95,16 @@ func TestUninstallPkg(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	st := &client.GooGetState{
+	d, err := client.NewDownloader("")
+	if err != nil {
+		t.Fatalf("NewDownloader: %v", err)
+	}
+	db, err := googetdb.NewDB(settings.DBFile())
+	if err != nil {
+		t.Fatalf("googetdb.NewDB: %v", err)
+	}
+	defer db.Close()
+	db.WriteStateToDB(client.GooGetState{
 		client.PackageState{
 			PackageSpec: &goolib.PkgSpec{
 				Name: "foo",
@@ -110,17 +118,7 @@ func TestUninstallPkg(t *testing.T) {
 			},
 			LocalPath: f.Name(),
 		},
-	}
-	d, err := client.NewDownloader("")
-	if err != nil {
-		t.Fatalf("NewDownloader: %v", err)
-	}
-	db, err := googetdb.NewDB(settings.DBFile())
-	if err != nil {
-		t.Fatalf("googetdb.NewDB: %v", err)
-	}
-	defer db.Close()
-	db.WriteStateToDB(*st)
+	})
 	if err := uninstallPkg(context.Background(), goolib.PackageInfo{Name: "foo"}, false, d, db); err != nil {
 		t.Fatalf("Error running uninstallPkg: %v", err)
 	}

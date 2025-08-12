@@ -72,11 +72,7 @@ func TestMinInstalled(t *testing.T) {
 		{"baz_pkg", "noarch", false},
 	}
 	for _, tt := range table {
-		pkg, err := db.FetchPkg(tt.pkg)
-		if err != nil {
-			t.Fatalf("error checking minAvailable: %v", err)
-		}
-		ma, err := minInstalled(goolib.PackageInfo{Name: tt.pkg, Arch: tt.arch, Ver: "1.0.0@1"}, &pkg)
+		ma, err := minInstalled(goolib.PackageInfo{Name: tt.pkg, Arch: tt.arch, Ver: "1.0.0@1"}, db)
 		if err != nil {
 			t.Fatalf("error checking minAvailable: %v", err)
 		}
