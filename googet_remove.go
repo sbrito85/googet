@@ -68,7 +68,7 @@ func (cmd *removeCmd) Execute(ctx context.Context, flags *flag.FlagSet, _ ...int
 			logger.Errorf("Package %q not installed, cannot remove.", arg)
 			continue
 		}
-		pi = goolib.PkgNameSplit(ps.PackageSpec.Name + "." + ps.PackageSpec.Arch)
+		pi = goolib.PackageInfo{Name: ps.PackageSpec.Name, Arch: ps.PackageSpec.Arch}
 		deps, dl := remove.EnumerateDeps(pi, db)
 		if settings.Confirm {
 			var b bytes.Buffer
