@@ -186,19 +186,15 @@ func AppAssociation(ps *goolib.PkgSpec, installSource string) (string, string) {
 			if err != nil {
 				continue
 			}
+			// Be more restrictive on publisher match for all software, to reduce the possibility of false positives.
+			if !strings.EqualFold(regPublisher, publisher) {
+				continue
+			}
 			if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, " ", "")), strings.ToLower(programName)) {
-				// Do an extra check for publisher for smaller package names and gain more confidence that we are returning the right package.
-				if len(programName) < 4 && !strings.Contains(strings.ToLower(strings.ReplaceAll(regPublisher, " ", "")), strings.ToLower(publisher)) {
-					return "", ""
-				}
 				return displayName, productReg
 			}
 			// Check if Package name is in display name removing dashes
 			if strings.Contains(strings.ToLower(strings.ReplaceAll(displayName, "-", "")), strings.ToLower(programName)) {
-				// Do an extra check for publisher for smaller package names and gain more confidence that we are returning the right package.
-				if len(programName) < 4 && !strings.Contains(strings.ToLower(strings.ReplaceAll(regPublisher, " ", "")), strings.ToLower(publisher)) {
-					return "", ""
-				}
 				return displayName, productReg
 			}
 			a, _, err := q.GetStringValue("InstallSource")
