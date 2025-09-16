@@ -80,3 +80,8 @@ func InstallableArchs() ([]string, error) {
 func AppAssociation(ps *goolib.PkgSpec, installSource string) (string, string) {
 	return "", ""
 }
+
+// IsAdmin returns nil and is a stub of the Windows implementation
+func IsAdmin() error {
+	return nil
+}

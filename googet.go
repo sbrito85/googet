@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/settings"
+	"github.com/google/googet/v2/system"
 	"github.com/google/logger"
 	"github.com/google/subcommands"
 
@@ -170,6 +171,10 @@ func run(ctx context.Context) int {
 		return int(cmdr.Execute(ctx))
 	}
 
+	if err := system.IsAdmin(); err != nil {
+		logger.Errorf("Failed admin check: %v", err)
+		return 1
+	}
 	cleanup, err := obtainLock(settings.LockFile())
 	if err != nil {
 		logger.Errorf("Failed to obtain lock: %v", err)
