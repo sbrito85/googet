@@ -423,14 +423,7 @@ func InstallableArchs() ([]string, error) {
 
 // IsAdmin checks to see if a user is admin and in an elevated prompt.
 func IsAdmin() error {
-	var processToken windows.Token
-	err := windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_QUERY|windows.TOKEN_DUPLICATE, &processToken)
-	if err != nil {
-		return fmt.Errorf("process token could not be opened: %w", err)
-	}
-	defer processToken.Close()
-
-	if !processToken.IsElevated() {
+	if !windows.GetCurrentProcessToken().IsElevated() {
 		return fmt.Errorf("must be run in an elevated (administrative) session")
 	}
 	return nil
