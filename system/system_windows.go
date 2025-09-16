@@ -423,33 +423,8 @@ func InstallableArchs() ([]string, error) {
 
 // IsAdmin checks to see if a user is admin and in an elevated prompt.
 func IsAdmin() error {
-
-	var sid *windows.SID
-
-	// https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
-	err := windows.AllocateAndInitializeSid(
-		&windows.SECURITY_NT_AUTHORITY,
-		2,
-		windows.SECURITY_BUILTIN_DOMAIN_RID,
-		windows.DOMAIN_ALIAS_RID_ADMINS,
-		0, 0, 0, 0, 0, 0,
-		&sid)
-	if err != nil {
-		return fmt.Errorf("sid error: %v", err)
+	if !windows.GetCurrentProcessToken().IsElevated() {
+		return fmt.Errorf("must be run in an elevated (administrative) session")
 	}
-
-	token := windows.Token(0)
-	defer token.Close()
-
-	member, err := token.IsMember(sid)
-	if err != nil {
-		return fmt.Errorf("token membership Eerror: %v", err)
-	}
-
-	// user is currently an admin
-	if member {
-		return nil
-	}
-
-	return fmt.Errorf("user does not have admin permissions")
+	return nil
 }
