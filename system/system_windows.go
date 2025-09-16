@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	win "golang.org/x/sys/windows"
+	"golang.org/x/sys/windows"
 
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
@@ -424,21 +424,21 @@ func InstallableArchs() ([]string, error) {
 // IsAdmin checks to see if a user is admin and in an elevated prompt.
 func IsAdmin() error {
 
-	var sid *win.SID
+	var sid *windows.SID
 
 	// https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
-	err := win.AllocateAndInitializeSid(
-		&win.SECURITY_NT_AUTHORITY,
+	err := windows.AllocateAndInitializeSid(
+		&windows.SECURITY_NT_AUTHORITY,
 		2,
-		win.SECURITY_BUILTIN_DOMAIN_RID,
-		win.DOMAIN_ALIAS_RID_ADMINS,
+		windows.SECURITY_BUILTIN_DOMAIN_RID,
+		windows.DOMAIN_ALIAS_RID_ADMINS,
 		0, 0, 0, 0, 0, 0,
 		&sid)
 	if err != nil {
 		return fmt.Errorf("sid error: %v", err)
 	}
 
-	token := win.Token(0)
+	token := windows.Token(0)
 	defer token.Close()
 
 	member, err := token.IsMember(sid)
