@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"time"
 
+	win "golang.org/x/sys/windows"
+
 	"github.com/google/googet/v2/googetdb"
 	"github.com/google/googet/v2/settings"
 	"github.com/google/logger"
@@ -74,6 +76,38 @@ func rotateLog(logPath string, ls int64) error {
 		return fmt.Errorf("error moving log file: %v", err)
 	}
 	return nil
+}
+
+func isAdmin() error {
+
+	var sid *win.SID
+
+	// https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
+	err := win.AllocateAndInitializeSid(
+		&win.SECURITY_NT_AUTHORITY,
+		2,
+		win.SECURITY_BUILTIN_DOMAIN_RID,
+		win.DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&sid)
+	if err != nil {
+		return fmt.Errorf("sid error: %v", err)
+	}
+
+	token := win.Token(0)
+	defer token.Close()
+
+	member, err := token.IsMember(sid)
+	if err != nil {
+		return fmt.Errorf("token membership Eerror: %v", err)
+	}
+
+	// user is currently an admin
+	if member {
+		return nil
+	}
+
+	return fmt.Errorf("user does not have admin permissions")
 }
 
 func obtainLock(lockFile string) (func(), error) {
@@ -170,6 +204,10 @@ func run(ctx context.Context) int {
 		return int(cmdr.Execute(ctx))
 	}
 
+	if err := isAdmin(); err != nil {
+		logger.Errorf("Failed admin check: %v", err)
+		return 1
+	}
 	cleanup, err := obtainLock(settings.LockFile())
 	if err != nil {
 		logger.Errorf("Failed to obtain lock: %v", err)
