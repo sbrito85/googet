@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	win "golang.org/x/sys/windows"
+
 	"github.com/google/googet/v2/client"
 	"github.com/google/googet/v2/goolib"
 	"github.com/google/googet/v2/oswrap"
@@ -417,4 +419,37 @@ func InstallableArchs() ([]string, error) {
 	default:
 		return nil, fmt.Errorf("runtime %s not supported", runtime.GOARCH)
 	}
+}
+
+// IsAdmin checks to see if a user is admin and in an elevated prompt.
+func IsAdmin() error {
+
+	var sid *win.SID
+
+	// https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
+	err := win.AllocateAndInitializeSid(
+		&win.SECURITY_NT_AUTHORITY,
+		2,
+		win.SECURITY_BUILTIN_DOMAIN_RID,
+		win.DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&sid)
+	if err != nil {
+		return fmt.Errorf("sid error: %v", err)
+	}
+
+	token := win.Token(0)
+	defer token.Close()
+
+	member, err := token.IsMember(sid)
+	if err != nil {
+		return fmt.Errorf("token membership Eerror: %v", err)
+	}
+
+	// user is currently an admin
+	if member {
+		return nil
+	}
+
+	return fmt.Errorf("user does not have admin permissions")
 }
