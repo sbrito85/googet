@@ -443,7 +443,7 @@ func IsAdmin() error {
 
 	member, err := token.IsMember(sid)
 	if err != nil {
-		return fmt.Errorf("token membership Eerror: %v", err)
+		return fmt.Errorf("token membership error: %v", err)
 	}
 
 	// user is currently an admin
